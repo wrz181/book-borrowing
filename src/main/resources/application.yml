@@ -8,7 +8,6 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/bookborrowing?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    # 改成你的 MySQL 密码
     password: Wrz!18136467664
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
