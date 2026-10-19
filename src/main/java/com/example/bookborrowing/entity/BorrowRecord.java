@@ -45,6 +45,9 @@ public class BorrowRecord {
     /** 更新时间 */
     private LocalDateTime updateTime;
 
+    /** 逻辑删除标记：0-未删除 1-已删除 */
+    private Integer isDeleted;
+
     /** 图书名称（关联查询字段，非数据库列） */
     private String bookName;
 

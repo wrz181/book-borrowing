@@ -16,6 +16,7 @@
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
         <result property="categoryName" column="category_name"/>
+        <result property="isDeleted" column="is_deleted"/>
     </resultMap>
 
     <!--
@@ -38,36 +39,38 @@
 
     <sql id="Book_With_Category_Column_List">
         b.id, b.book_name, b.author, b.isbn, b.publisher, b.category_id,
-        c.category_name, b.price, b.stock, b.status, b.create_time, b.update_time
+        c.category_name, b.price, b.stock, b.status, b.create_time, b.update_time, b.is_deleted
     </sql>
 
     <!--
       动态条件查询：图书名称、作者、分类、状态四个条件均可单独使用，也可组合使用。
+      b.is_deleted = 0 作为基础条件，保证逻辑删除的记录不参与查询。
     -->
     <sql id="Book_Query_Where">
-        <where>
-            <if test="query != null">
-                <if test="query.bookName != null and query.bookName != ''">
-                    AND b.book_name LIKE CONCAT('%', #{query.bookName}, '%')
-                </if>
-                <if test="query.author != null and query.author != ''">
-                    AND b.author LIKE CONCAT('%', #{query.author}, '%')
-                </if>
-                <if test="query.categoryId != null">
-                    AND b.category_id = #{query.categoryId}
-                </if>
-                <if test="query.status != null">
-                    AND b.status = #{query.status}
-                </if>
+        b.is_deleted = 0
+        <if test="query != null">
+            <if test="query.bookName != null and query.bookName != ''">
+                AND b.book_name LIKE CONCAT('%', #{query.bookName}, '%')
             </if>
-        </where>
+            <if test="query.author != null and query.author != ''">
+                AND b.author LIKE CONCAT('%', #{query.author}, '%')
+            </if>
+            <if test="query.categoryId != null">
+                AND b.category_id = #{query.categoryId}
+            </if>
+            <if test="query.status != null">
+                AND b.status = #{query.status}
+            </if>
+        </if>
     </sql>
 
     <select id="selectPage" resultMap="BaseResultMap">
         SELECT <include refid="Book_With_Category_Column_List"/>
         FROM book b
         LEFT JOIN book_category c ON b.category_id = c.id
-        <include refid="Book_Query_Where"/>
+        <where>
+            <include refid="Book_Query_Where"/>
+        </where>
         ORDER BY b.id DESC
         LIMIT #{offset}, #{limit}
     </select>
@@ -76,30 +79,33 @@
         SELECT COUNT(1)
         FROM book b
         LEFT JOIN book_category c ON b.category_id = c.id
-        <include refid="Book_Query_Where"/>
+        <where>
+            <include refid="Book_Query_Where"/>
+        </where>
     </select>
 
     <select id="selectById" parameterType="long" resultMap="BaseResultMap">
         SELECT <include refid="Book_With_Category_Column_List"/>
         FROM book b
         LEFT JOIN book_category c ON b.category_id = c.id
-        WHERE b.id = #{id}
+        WHERE b.id = #{id} AND b.is_deleted = 0
     </select>
 
     <!--
       图书详情一对多关联查询（个人指定功能 F2）：
       一条 SQL 关联图书、分类、该图书全部借阅记录，MyBatis 按图书ID自动组装为
       一个 Book 主对象 + List&lt;BorrowRecord&gt; 借阅记录集合。
+      仅查询未删除的图书；借阅记录仅关联未删除的记录（LEFT JOIN 条件内过滤）。
     -->
     <select id="selectDetailById" parameterType="long" resultMap="BookDetailResultMap">
         SELECT b.id, b.book_name, b.author, b.isbn, b.publisher, b.category_id,
-               c.category_name, b.price, b.stock, b.status, b.create_time, b.update_time,
+               c.category_name, b.price, b.stock, b.status, b.create_time, b.update_time, b.is_deleted,
                r.id AS record_id, r.borrower_name, r.borrower_no,
                r.borrow_date, r.due_date, r.return_date, r.status AS record_status, r.remark
         FROM book b
         LEFT JOIN book_category c ON b.category_id = c.id
-        LEFT JOIN borrow_record r ON r.book_id = b.id
-        WHERE b.id = #{id}
+        LEFT JOIN borrow_record r ON r.book_id = b.id AND r.is_deleted = 0
+        WHERE b.id = #{id} AND b.is_deleted = 0
         ORDER BY r.borrow_date DESC
     </select>
 
@@ -118,23 +124,20 @@
             price = #{price},
             stock = #{stock},
             status = #{status}
-        WHERE id = #{id}
+        WHERE id = #{id} AND is_deleted = 0
     </update>
 
-    <delete id="deleteById" parameterType="long">
-        DELETE FROM book WHERE id = #{id}
-    </delete>
+    <!-- 逻辑删除：仅标记 is_deleted = 1，不物理删除行，保留借阅记录历史 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE book SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
 
     <update id="deductStock" parameterType="long">
-        UPDATE book SET stock = stock - 1 WHERE id = #{id} AND stock > 0
+        UPDATE book SET stock = stock - 1 WHERE id = #{id} AND stock > 0 AND is_deleted = 0
     </update>
 
     <update id="addStock" parameterType="long">
-        UPDATE book SET stock = stock + 1 WHERE id = #{id}
+        UPDATE book SET stock = stock + 1 WHERE id = #{id} AND is_deleted = 0
     </update>
-
-    <select id="countRecordByBookId" parameterType="long" resultType="int">
-        SELECT COUNT(1) FROM borrow_record WHERE book_id = #{bookId}
-    </select>
 
 </mapper>

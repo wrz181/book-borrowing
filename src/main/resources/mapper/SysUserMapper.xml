@@ -8,22 +8,24 @@
         <result property="password" column="password"/>
         <result property="nickname" column="nickname"/>
         <result property="createTime" column="create_time"/>
+        <result property="isDeleted" column="is_deleted"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, username, password, nickname, create_time
+        id, username, password, nickname, create_time, is_deleted
     </sql>
 
+    <!-- 逻辑删除：登录与查询均忽略 is_deleted = 1 的账号 -->
     <select id="selectByUsername" parameterType="string" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM sys_user
-        WHERE username = #{username}
+        WHERE username = #{username} AND is_deleted = 0
     </select>
 
     <select id="selectById" parameterType="long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM sys_user
-        WHERE id = #{id}
+        WHERE id = #{id} AND is_deleted = 0
     </select>
 
 </mapper>

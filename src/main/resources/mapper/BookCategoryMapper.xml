@@ -9,26 +9,28 @@
         <result property="description" column="description"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="isDeleted" column="is_deleted"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, category_name, category_code, description, create_time, update_time
+        id, category_name, category_code, description, create_time, update_time, is_deleted
     </sql>
 
     <!--
       分类列表查询：排序由 Service 层白名单控制后传入，避免 SQL 注入。
-      default=按创建顺序（新增分类排在最后） name=按名称 updateTime=按修改时间倒序
+      逻辑删除：所有查询均忽略 is_deleted = 1 的记录。
     -->
     <select id="selectAll" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM book_category
+        WHERE is_deleted = 0
         ORDER BY ${orderBy}
     </select>
 
     <select id="selectById" parameterType="long" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM book_category
-        WHERE id = #{id}
+        WHERE id = #{id} AND is_deleted = 0
     </select>
 
     <insert id="insert" parameterType="BookCategory" useGeneratedKeys="true" keyProperty="id">
@@ -41,15 +43,17 @@
         SET category_name = #{categoryName},
             category_code = #{categoryCode},
             description = #{description}
-        WHERE id = #{id}
+        WHERE id = #{id} AND is_deleted = 0
     </update>
 
-    <delete id="deleteById" parameterType="long">
-        DELETE FROM book_category WHERE id = #{id}
-    </delete>
+    <!-- 逻辑删除：仅标记 is_deleted = 1，不物理删除行 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE book_category SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
 
+    <!-- 统计分类下未删除的图书数量，作为删除前关联校验依据 -->
     <select id="countBookByCategoryId" parameterType="long" resultType="int">
-        SELECT COUNT(1) FROM book WHERE category_id = #{categoryId}
+        SELECT COUNT(1) FROM book WHERE category_id = #{categoryId} AND is_deleted = 0
     </select>
 
 </mapper>

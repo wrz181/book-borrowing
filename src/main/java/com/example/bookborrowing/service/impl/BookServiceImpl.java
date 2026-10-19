@@ -79,10 +79,7 @@ public class BookServiceImpl implements BookService {
         if (exist == null) {
             throw new BusinessException("图书不存在");
         }
-        // 关联删除限制：图书存在借阅记录时不允许删除
-        if (bookMapper.countRecordByBookId(id) > 0) {
-            throw new BusinessException("该图书存在借阅记录，不能删除");
-        }
+        // 逻辑删除：仅标记 is_deleted = 1，保留借阅记录历史，不物理删除行
         bookMapper.deleteById(id);
     }
 }
