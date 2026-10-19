@@ -12,6 +12,9 @@
         <el-menu-item v-if="userStore.hasPerm('group:app')" index="/backend/apps">
           <el-icon><Connection /></el-icon><span>应用集成配置</span>
         </el-menu-item>
+        <el-menu-item v-if="userStore.hasPerm('group:app')" index="/backend/biz">
+          <el-icon><Files /></el-icon><span>集成业务配置</span>
+        </el-menu-item>
         <el-menu-item v-if="userStore.hasPerm('system:log')" index="/backend/system/logs">
           <el-icon><Document /></el-icon><span>日志类型设置</span>
         </el-menu-item>
@@ -19,7 +22,7 @@
           <el-icon><Odometer /></el-icon><span>内存监控</span>
         </el-menu-item>
         <el-menu-item v-if="userStore.hasPerm('system:cache')" index="/backend/system/cache">
-          <el-icon><Delete /></el-icon><span>JS缓存清理</span>
+          <el-icon><Delete /></el-icon><span>前端资源刷新</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -64,7 +67,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  User, Key, Connection, Document, Odometer, Delete,
+  User, Key, Connection, Document, Odometer, Delete, Files,
   Switch, ArrowDown, Back, SwitchButton
 } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'

@@ -31,11 +31,11 @@
       <el-table-column prop="createTime" label="创建时间" width="180" />
       <el-table-column label="操作" width="270" align="center" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
-          <el-button type="warning" text :icon="Key" @click="onResetPassword(row)">重置密码</el-button>
+          <el-button type="primary" text :icon="Edit" :disabled="!maintainable(row)" @click="openDialog(row)">编辑</el-button>
+          <el-button type="warning" text :icon="Key" :disabled="!maintainable(row)" @click="onResetPassword(row)">重置密码</el-button>
           <el-popconfirm title="确认删除该账号？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
             <template #reference>
-              <el-button type="danger" text :icon="Delete">删除</el-button>
+              <el-button type="danger" text :icon="Delete" :disabled="!maintainable(row)">删除</el-button>
             </template>
           </el-popconfirm>
         </template>
@@ -61,8 +61,8 @@
         <el-form-item label="昵称/姓名" prop="nickname">
           <el-input v-model="editing.nickname" maxlength="50" />
         </el-form-item>
-        <el-form-item label="角色" prop="roleId">
-          <el-select v-model="editing.roleId" placeholder="请选择角色" style="width: 100%">
+        <el-form-item label="角色" prop="roleIds">
+          <el-select v-model="editing.roleIds" multiple collapse-tags collapse-tags-tooltip placeholder="请选择角色（可多选，一个账号可同时担任三员）" style="width: 100%">
             <el-option v-for="r in roles" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
@@ -83,6 +83,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, Key } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pageUsers, createUser, updateUser, deleteUser, resetUserPassword, listRoles } from '../../../api/admin'
+import { listUserRoleIds } from '../../../api/user'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -94,11 +95,20 @@ const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
+// 集团管理员可授予的角色：普通人员 + 三员（一个账号可同时担任三员）
+const GRANTABLE_ROLE_CODES = ['NORMAL', 'SEC_SYS_ADMIN', 'SEC_SEC_ADMIN', 'SEC_AUDIT_ADMIN']
+// 持有这些角色的账号归超级管理员管辖，集团管理员不可增删改
+const PROTECTED_ROLE_CODES = ['SUPER_ADMIN', 'GROUP_ADMIN', 'SYS_ADMIN']
+
 const query = reactive({ keyword: '', roleId: null })
-const editing = reactive({ id: null, username: '', nickname: '', roleId: null, password: '' })
+const editing = reactive({ id: null, username: '', nickname: '', roleIds: [], password: '' })
 const rules = {
   username: [{ required: true, message: '请输入登录账号', trigger: 'blur' }],
-  roleId: [{ required: true, message: '请选择角色', trigger: 'change' }]
+  roleIds: [{ required: true, type: 'array', min: 1, message: '请至少选择一个角色', trigger: 'change' }]
+}
+
+function maintainable(row) {
+  return !PROTECTED_ROLE_CODES.includes(row.roleCode)
 }
 
 async function loadData() {
@@ -128,11 +138,25 @@ function onReset() {
   loadData()
 }
 
-function openDialog(row) {
+async function openDialog(row) {
   if (row) {
-    Object.assign(editing, { id: row.id, username: row.username, nickname: row.nickname, roleId: row.roleId, password: '' })
+    // 回填该账号已绑定的全部身份（可能同时兼任三员）
+    let boundRoles = []
+    try {
+      boundRoles = (await listUserRoleIds(row.id)) || []
+    } catch {
+      boundRoles = []
+    }
+    const roleIds = boundRoles.filter((id) => roles.value.some((r) => r.id === id))
+    Object.assign(editing, {
+      id: row.id,
+      username: row.username,
+      nickname: row.nickname,
+      roleIds: roleIds.length ? roleIds : [row.roleId].filter((id) => id),
+      password: ''
+    })
   } else {
-    Object.assign(editing, { id: null, username: '', nickname: '', roleId: null, password: '' })
+    Object.assign(editing, { id: null, username: '', nickname: '', roleIds: [], password: '' })
   }
   dialogVisible.value = true
   formRef.value?.clearValidate()
@@ -147,10 +171,15 @@ async function onSubmit() {
   submitting.value = true
   try {
     if (editing.id) {
-      await updateUser(editing.id, { nickname: editing.nickname, roleId: editing.roleId })
+      await updateUser(editing.id, { nickname: editing.nickname, roleIds: editing.roleIds })
       ElMessage.success('修改成功')
     } else {
-      await createUser(editing)
+      await createUser({
+        username: editing.username,
+        nickname: editing.nickname,
+        roleIds: editing.roleIds,
+        password: editing.password
+      })
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false
@@ -183,8 +212,8 @@ async function onDelete(row) {
 
 onMounted(async () => {
   const all = await listRoles()
-  // 集团管理员只能创建/维护普通人员账号，角色下拉仅保留 NORMAL
-  roles.value = (all || []).filter((r) => r.roleCode === 'NORMAL')
+  // 集团管理员可授予/维护的角色白名单：普通人员 + 三员（可多选，一个账号可同时担任三员）
+  roles.value = (all || []).filter((r) => GRANTABLE_ROLE_CODES.includes(r.roleCode))
   await loadData()
 })
 </script>

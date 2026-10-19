@@ -6,6 +6,8 @@ import com.example.bookborrowing.common.LogStore;
 import com.example.bookborrowing.common.PageResult;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.common.StaticResourceVersion;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +39,8 @@ import java.util.Map;
 @RequestMapping("/api/admin/system")
 public class SystemAdminController {
 
+    private static final Logger log = LoggerFactory.getLogger(SystemAdminController.class);
+
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final LogStore logStore;
@@ -56,7 +60,9 @@ public class SystemAdminController {
     @GetMapping("/logs/modules")
     @RequirePermission("system:log")
     public Result<List<Map<String, Object>>> logModules() {
-        return Result.success(logStore.listModules());
+        List<Map<String, Object>> modules = logStore.listModules();
+        log.info("查询日志模块配置列表：共 {} 个模块", modules.size());
+        return Result.success(modules);
     }
 
     /**
@@ -65,11 +71,12 @@ public class SystemAdminController {
      * @param body 请求体：module、level
      * @return 设置后的级别
      */
-    @PutMapping("/logs/level")
+    @PostMapping("/logs/level")
     @RequirePermission("system:log")
     public Result<String> setLogLevel(@RequestBody Map<String, String> body) {
         String module = body.get("module");
         String level = body.get("level");
+        log.info("设置日志级别：模块={}，目标级别={}", module, level);
         return Result.success(logStore.setLevel(module, level));
     }
 
@@ -88,7 +95,10 @@ public class SystemAdminController {
                                              @RequestParam(required = false) String level,
                                              @RequestParam(defaultValue = "1") int pageNum,
                                              @RequestParam(defaultValue = "20") int pageSize) {
-        return Result.success(logStore.query(module, level, pageNum, pageSize));
+        PageResult<LogEntry> page = logStore.query(module, level, pageNum, pageSize);
+        log.info("查询内存日志：模块={}，级别下限={}，第 {} 页，每页 {} 条，命中 {} 条",
+                module, level, pageNum, pageSize, page.getTotal());
+        return Result.success(page);
     }
 
     /**
@@ -96,10 +106,11 @@ public class SystemAdminController {
      *
      * @return 空响应
      */
-    @DeleteMapping("/logs")
+    @PostMapping("/logs/clear")
     @RequirePermission("system:log")
     public Result<Void> clearLogs() {
         logStore.clear();
+        log.info("清空内存日志缓冲");
         return Result.success();
     }
 
@@ -170,6 +181,7 @@ public class SystemAdminController {
         data.put("runtime", runtimeMap);
 
         data.put("serverTime", TIME_FORMATTER.format(LocalDateTime.now()));
+        log.debug("查询内存监控快照：堆使用率={}%", heapMap.get("usagePercent"));
         return Result.success(data);
     }
 
@@ -192,7 +204,9 @@ public class SystemAdminController {
     @PostMapping("/cache/clear")
     @RequirePermission("system:cache")
     public Result<Long> clearCache() {
-        return Result.success(staticResourceVersion.bump());
+        Long version = staticResourceVersion.bump();
+        log.info("清理 JS 缓存：静态资源版本号已更新为 {}", version);
+        return Result.success(version);
     }
 
     /**

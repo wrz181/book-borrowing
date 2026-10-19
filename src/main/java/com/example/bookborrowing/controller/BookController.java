@@ -76,7 +76,7 @@ public class BookController {
      * @param book 图书实体
      * @return 空响应
      */
-    @PutMapping("/{id}")
+    @PostMapping("/{id}")
     @RequirePermission("book:edit")
     public Result<Void> update(@PathVariable Long id, @RequestBody Book book) {
         book.setId(id);
@@ -90,7 +90,7 @@ public class BookController {
      * @param id 图书ID
      * @return 空响应
      */
-    @DeleteMapping("/{id}")
+    @PostMapping("/{id}/delete")
     @RequirePermission("book:delete")
     public Result<Void> delete(@PathVariable Long id) {
         bookService.remove(id);

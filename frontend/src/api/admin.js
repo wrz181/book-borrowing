@@ -12,17 +12,17 @@ export function createUser(data) {
 
 /** 修改账号 */
 export function updateUser(id, data) {
-  return request.put(`/admin/users/${id}`, data)
+  return request.post(`/admin/users/${id}`, data)
 }
 
 /** 删除账号 */
 export function deleteUser(id) {
-  return request.delete(`/admin/users/${id}`)
+  return request.post(`/admin/users/${id}/delete`)
 }
 
 /** 重置密码 */
 export function resetUserPassword(id, password) {
-  return request.put(`/admin/users/${id}/password`, { password })
+  return request.post(`/admin/users/${id}/password`, { password })
 }
 
 /** 角色列表（含权限编码） */
@@ -37,5 +37,5 @@ export function listPermissions() {
 
 /** 更新角色权限 */
 export function updateRolePermissions(id, permCodes) {
-  return request.put(`/admin/roles/${id}/permissions`, { permCodes })
+  return request.post(`/admin/roles/${id}/permissions`, { permCodes })
 }

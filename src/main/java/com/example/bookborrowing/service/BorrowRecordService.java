@@ -12,27 +12,31 @@ public interface BorrowRecordService {
     /**
      * 分页动态条件查询借阅记录（关联图书名称、作者、分类名称）。
      *
-     * @param pageNum  页码（从1开始）
-     * @param pageSize 每页条数
-     * @param query    动态查询条件（图书名称/借阅人/状态/借阅日期范围，可组合）
+     * @param pageNum         页码（从1开始）
+     * @param pageSize        每页条数
+     * @param query           动态查询条件（图书名称/借阅人/状态/借阅日期范围，可组合）
+     * @param scopeBorrowerId 数据范围：非空时仅查询本人记录；null 表示不限范围（由 Controller 按权限计算）
      * @return 分页结果
      */
-    PageResult<BorrowRecord> page(int pageNum, int pageSize, BorrowRecordQueryDTO query);
+    PageResult<BorrowRecord> page(int pageNum, int pageSize, BorrowRecordQueryDTO query, Long scopeBorrowerId);
 
     /**
      * 查询借阅记录详情。
      *
-     * @param id 记录ID
+     * @param id              记录ID
+     * @param scopeBorrowerId 数据范围：非空时仅当记录属于该用户才返回；null 表示不限范围
      * @return 借阅记录实体（含关联图书信息）
      */
-    BorrowRecord getDetail(Long id);
+    BorrowRecord getDetail(Long id, Long scopeBorrowerId);
 
     /**
      * 新增借阅记录：校验图书存在、R03 重复借阅规则、库存，并扣减库存。
      *
-     * @param record 借阅记录实体
+     * @param record        借阅记录实体
+     * @param currentUserId 当前登录用户ID（写入 borrower_id，形成数据归属，防止前端伪造）
+     * @param manage        当前用户是否持有 borrow:manage；非管理身份一律以本人作为借阅归属
      */
-    void create(BorrowRecord record);
+    void create(BorrowRecord record, Long currentUserId, boolean manage);
 
     /**
      * 更新借阅记录：同样执行 R03 重复借阅规则校验。
@@ -51,7 +55,18 @@ public interface BorrowRecordService {
     /**
      * 归还图书：设置归还日期、状态改为已归还，并恢复库存。
      *
-     * @param id 记录ID
+     * @param id            记录ID
+     * @param currentUserId 当前登录用户ID
+     * @param manage        当前用户是否持有 borrow:manage；非管理身份只能归还本人记录
      */
-    void returnBook(Long id);
+    void returnBook(Long id, Long currentUserId, boolean manage);
+
+    /**
+     * 判断当前登录用户是否持有借阅管理权限（borrow:manage），用于收敛数据范围。
+     *
+     * @param userId       当前登录用户ID
+     * @param activeRoleId 当前身份角色ID（请求头 X-Active-Role），null 表示按全身份权限并集判定
+     * @return 持有 borrow:manage 返回 true
+     */
+    boolean hasBorrowManage(Long userId, Long activeRoleId);
 }

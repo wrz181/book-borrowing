@@ -6,7 +6,7 @@ import com.example.bookborrowing.entity.BookPurchase;
 
 /**
  * 图书采购业务接口。
- * 业务闭环：草稿 → 提交下发外部集成应用 → 对方回执 → 入库（增加或新增图书库存）。
+ * 业务闭环：草稿 → 提交申请 → 审批下发 ERP（超级节点）→ 回执 → 入库（增加或新增图书库存）。
  */
 public interface BookPurchaseService {
 
@@ -52,17 +52,8 @@ public interface BookPurchaseService {
     void delete(Long id);
 
     /**
-     * 提交采购单：草稿 → 已提交；若指定应用则下发集成表单，等待对方处理。
-     *
-     * @param id       采购单ID
-     * @param appId    下发的集成应用ID（可空，空表示不下发外部平台）
-     * @param userName 操作人姓名
-     */
-    void submit(Long id, Long appId, String userName);
-
-    /**
-     * 采购入库：已提交 → 已入库，匹配已有图书增加库存或新增图书。
-     * 若已下发外部平台，需等待对方回执后方可入库。
+     * 人工补偿入库（异常补偿用）：必须存在流程实例，且流程已完成（current_node = DONE）、采购单处于已提交(1)。
+     * 无流程实例的采购单一律拒绝，须走『提交申请 → 审批下发 ERP』流程入库。
      *
      * @param id     采购单ID
      * @param remark 入库备注（可空）
@@ -70,9 +61,20 @@ public interface BookPurchaseService {
     void stockIn(Long id, String remark);
 
     /**
-     * 取消采购单：草稿/已提交 → 已取消。
+     * 流程引擎内部入库（ERP 审批通过自动入库）。
+     * 不受「已提交/已回执」闸门限制（由流程引擎控制），但仍保持幂等：已入库时抛业务异常而不二次加库存。
      *
-     * @param id 采购单ID
+     * @param id     采购单ID
+     * @param remark 入库备注（可空）
      */
-    void cancel(Long id);
+    void stockInInternal(Long id, String remark);
+
+    /**
+     * 取消采购单：草稿/已提交 → 已取消，同时把未结束的流程实例置为已取消（CANCELED/3）并写轨迹。
+     *
+     * @param id       采购单ID
+     * @param userId   操作人ID（可空）
+     * @param userName 操作人姓名（可空）
+     */
+    void cancel(Long id, Long userId, String userName);
 }

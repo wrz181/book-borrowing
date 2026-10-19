@@ -7,7 +7,7 @@ export function listLogModules() {
 
 /** 设置模块日志级别 */
 export function setLogLevel(module, level) {
-  return request.put('/admin/system/logs/level', { module, level })
+  return request.post('/admin/system/logs/level', { module, level })
 }
 
 /** 分页查询内存日志 */
@@ -17,7 +17,7 @@ export function pageLogs(params) {
 
 /** 清空内存日志 */
 export function clearLogs() {
-  return request.delete('/admin/system/logs')
+  return request.post('/admin/system/logs/clear')
 }
 
 /** 内存监控数据 */

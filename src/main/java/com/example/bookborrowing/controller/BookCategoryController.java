@@ -61,7 +61,7 @@ public class BookCategoryController {
      * @param category 分类实体
      * @return 空响应
      */
-    @PutMapping("/{id}")
+    @PostMapping("/{id}")
     @RequirePermission("category:manage")
     public Result<Void> update(@PathVariable Long id, @RequestBody BookCategory category) {
         category.setId(id);
@@ -75,7 +75,7 @@ public class BookCategoryController {
      * @param id 分类ID
      * @return 空响应
      */
-    @DeleteMapping("/{id}")
+    @PostMapping("/{id}/delete")
     @RequirePermission("category:manage")
     public Result<Void> delete(@PathVariable Long id) {
         bookCategoryService.remove(id);

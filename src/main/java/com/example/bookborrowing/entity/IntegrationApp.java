@@ -27,12 +27,6 @@ public class IntegrationApp {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String ssoSecret;
 
-    /** 是否启用待办集成：1-是 0-否 */
-    private Integer todoEnabled;
-
-    /** 是否启用消息集成：1-是 0-否 */
-    private Integer msgEnabled;
-
     /** 是否启用：1-启用 0-停用 */
     private Integer enabled;
 

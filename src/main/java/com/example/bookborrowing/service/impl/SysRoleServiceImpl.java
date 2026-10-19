@@ -18,6 +18,9 @@ import java.util.List;
 @Service
 public class SysRoleServiceImpl implements SysRoleService {
 
+    /** 超级管理员角色编码：最高权限层，权限全量内置，任何界面不可修改、不可删除 */
+    private static final String SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN";
+
     private final SysRoleMapper sysRoleMapper;
 
     private final SysPermissionMapper sysPermissionMapper;
@@ -47,6 +50,10 @@ public class SysRoleServiceImpl implements SysRoleService {
         SysRole role = sysRoleMapper.selectById(roleId);
         if (role == null) {
             throw new BusinessException("角色不存在");
+        }
+        if (SUPER_ADMIN_ROLE_CODE.equals(role.getRoleCode())) {
+            // 超级管理员是最高权限层：权限由系统内置全量授权（含 group:* 与 system:*），不接受任何调整
+            throw new BusinessException("超级管理员（SUPER_ADMIN）为最高权限层，拥有全部权限，不可修改");
         }
         if (role.getIsBuiltin() != null && role.getIsBuiltin() == 1
                 && !"NORMAL".equals(role.getRoleCode())) {

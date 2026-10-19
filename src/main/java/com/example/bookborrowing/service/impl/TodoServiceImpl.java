@@ -27,6 +27,7 @@ public class TodoServiceImpl implements TodoService {
         int page = Math.max(pageNum, 1);
         int size = pageSize <= 0 ? 10 : pageSize;
         int offset = (page - 1) * size;
+        // userId 为 null 时不限接收人（能力保留，当前调用方均传入登录用户ID）
         List<TodoItem> list = todoItemMapper.selectPage(offset, size, userId, status);
         long total = todoItemMapper.selectCount(userId, status);
         return new PageResult<>(list, total, page, size);

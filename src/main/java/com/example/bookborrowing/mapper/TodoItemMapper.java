@@ -14,11 +14,11 @@ import java.util.List;
 public interface TodoItemMapper {
 
     /**
-     * 分页查询某接收人的待办。
+     * 分页查询待办。
      *
      * @param offset     偏移量
      * @param limit      每页条数
-     * @param receiverId 接收人ID
+     * @param receiverId 接收人ID（null 表示不限接收人，能力保留）
      * @param status     状态（可空，null 表示全部）
      * @return 待办列表
      */
@@ -28,9 +28,9 @@ public interface TodoItemMapper {
                               @Param("status") Integer status);
 
     /**
-     * 统计某接收人的待办总数。
+     * 统计待办总数。
      *
-     * @param receiverId 接收人ID
+     * @param receiverId 接收人ID（null 表示不限接收人，能力保留）
      * @param status     状态（可空）
      * @return 总记录数
      */

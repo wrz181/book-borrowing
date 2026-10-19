@@ -16,30 +16,35 @@ public interface BorrowRecordMapper {
     /**
      * 分页动态条件查询借阅记录（关联图书名称、作者、分类名称）。
      *
-     * @param offset 偏移量
-     * @param limit  每页条数
-     * @param query  动态查询条件
+     * @param offset          偏移量
+     * @param limit           每页条数
+     * @param query           动态查询条件
+     * @param scopeBorrowerId 数据范围：非空时仅查询 borrower_id = 该值的记录（本人）；null 表示不限范围（管理权限）
      * @return 借阅记录列表
      */
     List<BorrowRecord> selectPage(@Param("offset") int offset,
                                   @Param("limit") int limit,
-                                  @Param("query") BorrowRecordQueryDTO query);
+                                  @Param("query") BorrowRecordQueryDTO query,
+                                  @Param("scopeBorrowerId") Long scopeBorrowerId);
 
     /**
      * 统计符合条件的借阅记录总数（与 selectPage 条件一致）。
      *
-     * @param query 动态查询条件
+     * @param query           动态查询条件
+     * @param scopeBorrowerId 数据范围：非空时仅统计 borrower_id = 该值的记录（本人）；null 表示不限范围（管理权限）
      * @return 总记录数
      */
-    long selectCount(@Param("query") BorrowRecordQueryDTO query);
+    long selectCount(@Param("query") BorrowRecordQueryDTO query,
+                     @Param("scopeBorrowerId") Long scopeBorrowerId);
 
     /**
      * 按ID查询借阅记录详情（关联图书名称、作者、分类名称）。
      *
-     * @param id 记录ID
-     * @return 借阅记录实体，不存在返回 null
+     * @param id              记录ID
+     * @param scopeBorrowerId 数据范围：非空时仅当 borrower_id = 该值才返回；null 表示不限范围（管理权限）
+     * @return 借阅记录实体，不存在或不在数据范围内返回 null
      */
-    BorrowRecord selectById(Long id);
+    BorrowRecord selectById(@Param("id") Long id, @Param("scopeBorrowerId") Long scopeBorrowerId);
 
     /**
      * 新增借阅记录。

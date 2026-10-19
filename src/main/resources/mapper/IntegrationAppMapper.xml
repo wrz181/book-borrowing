@@ -8,8 +8,6 @@
         <result property="appUrl" column="app_url"/>
         <result property="appType" column="app_type"/>
         <result property="ssoSecret" column="sso_secret"/>
-        <result property="todoEnabled" column="todo_enabled"/>
-        <result property="msgEnabled" column="msg_enabled"/>
         <result property="enabled" column="enabled"/>
         <result property="description" column="description"/>
         <result property="createTime" column="create_time"/>
@@ -18,7 +16,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, app_name, app_url, app_type, sso_secret, todo_enabled, msg_enabled,
+        id, app_name, app_url, app_type, sso_secret,
         enabled, description, create_time, update_time, is_deleted
     </sql>
 
@@ -44,9 +42,9 @@
 
     <insert id="insert" parameterType="IntegrationApp" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO integration_app
-            (app_name, app_url, app_type, sso_secret, todo_enabled, msg_enabled, enabled, description)
+            (app_name, app_url, app_type, sso_secret, enabled, description)
         VALUES
-            (#{appName}, #{appUrl}, #{appType}, #{ssoSecret}, #{todoEnabled}, #{msgEnabled}, #{enabled}, #{description})
+            (#{appName}, #{appUrl}, #{appType}, #{ssoSecret}, #{enabled}, #{description})
     </insert>
 
     <update id="updateById" parameterType="IntegrationApp">
@@ -55,8 +53,6 @@
             app_url = #{appUrl},
             app_type = #{appType},
             sso_secret = #{ssoSecret},
-            todo_enabled = #{todoEnabled},
-            msg_enabled = #{msgEnabled},
             enabled = #{enabled},
             description = #{description}
         WHERE id = #{id} AND is_deleted = 0

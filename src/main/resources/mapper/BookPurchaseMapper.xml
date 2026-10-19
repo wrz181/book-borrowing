@@ -32,6 +32,9 @@
         <result property="categoryName" column="category_name"/>
         <result property="appName" column="app_name"/>
         <result property="formStatus" column="form_status"/>
+        <!-- 流程字段：join purchase_flow 出来的只读字段，仅分页查询返回 -->
+        <result property="currentNode" column="current_node"/>
+        <result property="nodeStatus" column="node_status"/>
     </resultMap>
 
     <sql id="Purchase_With_Ref_Column_List">
@@ -43,6 +46,15 @@
         c.category_name AS category_name,
         a.app_name AS app_name,
         f.status AS form_status
+    </sql>
+
+    <!--
+      流程字段列：仅分页查询（selectPage）使用，走 LEFT JOIN purchase_flow pf。
+      无流程实例的老单据该两列为 NULL，前端据此判断是否展示流程节点。
+    -->
+    <sql id="Purchase_Flow_Column_List">
+        pf.current_node AS current_node,
+        pf.node_status AS node_status
     </sql>
 
     <!--
@@ -70,12 +82,15 @@
         </if>
     </sql>
 
+    <!-- 分页列表：额外 LEFT JOIN 流程实例，返回 current_node / node_status（uk_purchase_id 保证一对一，不会放大行数） -->
     <select id="selectPage" resultMap="BaseResultMap">
-        SELECT <include refid="Purchase_With_Ref_Column_List"/>
+        SELECT <include refid="Purchase_With_Ref_Column_List"/>,
+               <include refid="Purchase_Flow_Column_List"/>
         FROM book_purchase p
         LEFT JOIN book_category c ON p.category_id = c.id
         LEFT JOIN integration_app a ON p.app_id = a.id
         LEFT JOIN integration_form f ON p.integration_form_id = f.id
+        LEFT JOIN purchase_flow pf ON pf.purchase_id = p.id AND pf.is_deleted = 0
         <where>
             <include refid="Purchase_Query_Where"/>
         </where>
@@ -83,12 +98,17 @@
         LIMIT #{offset}, #{limit}
     </select>
 
+    <!--
+      统计口径与分页查询一致：同样带 purchase_flow 的 LEFT JOIN，但用 COUNT(DISTINCT p.id)，
+      即使历史数据出现一条采购单多条流程实例也不会重复计数。
+    -->
     <select id="selectCount" resultType="long">
-        SELECT COUNT(1)
+        SELECT COUNT(DISTINCT p.id)
         FROM book_purchase p
         LEFT JOIN book_category c ON p.category_id = c.id
         LEFT JOIN integration_app a ON p.app_id = a.id
         LEFT JOIN integration_form f ON p.integration_form_id = f.id
+        LEFT JOIN purchase_flow pf ON pf.purchase_id = p.id AND pf.is_deleted = 0
         <where>
             <include refid="Purchase_Query_Where"/>
         </where>
@@ -142,13 +162,25 @@
         WHERE id = #{id} AND is_deleted = 0 AND status = 0
     </update>
 
+    <!-- 外部平台回执后回写采购单：按集成表单ID反查，仅已提交(1)状态可流转到已回执(3)，保证重复回执不产生二次写入 -->
+    <update id="markAcknowledged">
+        UPDATE book_purchase
+        SET status = 3
+        WHERE integration_form_id = #{formId} AND is_deleted = 0 AND status = 1
+    </update>
+
+    <!--
+      人工入库（异常补偿）：闸门由流程节点在 Service 层控制（须流程 DONE 且采购单处于已提交(1)），
+      此处只保留状态幂等条件，避免已入库(2)的记录被二次加库存。
+    -->
     <update id="markStockIn">
         UPDATE book_purchase
         SET status = 2,
             stock_in_time = #{stockInTime},
             stock_in_book_id = #{bookId},
             stock_in_remark = #{remark}
-        WHERE id = #{id} AND is_deleted = 0 AND status = 1
+        WHERE id = #{id} AND is_deleted = 0
+          AND status IN (1, 3)
     </update>
 
     <update id="markCanceled">
@@ -157,5 +189,60 @@
             cancel_time = #{cancelTime}
         WHERE id = #{id} AND is_deleted = 0 AND status IN (0, 1)
     </update>
+
+    <!-- 审批下发后回写集成表单关联：状态保持已提交(1)，等待 ERP 回执 -->
+    <update id="markFormIssued">
+        UPDATE book_purchase
+        SET app_id = #{appId},
+            integration_form_id = #{formId},
+            submit_time = #{submitTime}
+        WHERE id = #{id} AND is_deleted = 0 AND status = 1
+    </update>
+
+    <!-- 打回后采购单回到流程中：已回执(3) 回退为已提交(1)，已入库(2) 不回退 -->
+    <update id="markReopened">
+        UPDATE book_purchase
+        SET status = 1
+        WHERE id = #{id} AND is_deleted = 0 AND status = 3
+    </update>
+
+    <!--
+      流程引擎自动入库：闸门由流程节点控制（flow.current_node = DONE），此处只保留状态幂等条件，
+      允许已提交(1) 与已回执(3) 入库，已入库(2) 的重复调用影响行数为 0，不产生二次加库存。
+    -->
+    <update id="markStockInInternal">
+        UPDATE book_purchase
+        SET status = 2,
+            stock_in_time = #{stockInTime},
+            stock_in_book_id = #{bookId},
+            stock_in_remark = #{remark}
+        WHERE id = #{id} AND is_deleted = 0 AND status IN (1, 3)
+    </update>
+
+    <!-- ERP 回执时按集成表单ID反查采购单 -->
+    <select id="selectByIntegrationFormId" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Purchase_With_Ref_Column_List"/>
+        FROM book_purchase p
+        LEFT JOIN book_category c ON p.category_id = c.id
+        LEFT JOIN integration_app a ON p.app_id = a.id
+        LEFT JOIN integration_form f ON p.integration_form_id = f.id
+        WHERE p.integration_form_id = #{formId} AND p.is_deleted = 0
+        ORDER BY p.id DESC
+        LIMIT 1
+    </select>
+    <!--
+      超级节点等待回执的采购单ID集（回调超时巡检用）：
+      purchase_flow 与 book_purchase 由 uk_purchase_id 保证一对一，直接按流程状态取采购单ID。
+    -->
+    <select id="selectSuperNodeWaitPurchaseIds" resultType="long">
+        SELECT p.id
+        FROM book_purchase p
+        INNER JOIN purchase_flow pf ON pf.purchase_id = p.id AND pf.is_deleted = 0
+        WHERE p.is_deleted = 0
+          AND pf.current_node = 'SUPER'
+          AND pf.node_status = 0
+          AND pf.erp_submit_time IS NOT NULL
+        ORDER BY pf.erp_submit_time ASC
+    </select>
 
 </mapper>

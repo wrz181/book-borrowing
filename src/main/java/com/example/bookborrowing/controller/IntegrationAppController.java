@@ -59,7 +59,7 @@ public class IntegrationAppController {
      * @param app 应用实体
      * @return 空响应
      */
-    @PutMapping("/{id}")
+    @PostMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody IntegrationApp app) {
         app.setId(id);
         integrationAppService.update(app);
@@ -72,7 +72,7 @@ public class IntegrationAppController {
      * @param id 应用ID
      * @return 空响应
      */
-    @DeleteMapping("/{id}")
+    @PostMapping("/{id}/delete")
     public Result<Void> delete(@PathVariable Long id) {
         integrationAppService.delete(id);
         return Result.success();

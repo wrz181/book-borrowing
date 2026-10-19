@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 系统用户业务实现：BCrypt 密码校验与账号管理。
@@ -25,6 +26,17 @@ public class SysUserServiceImpl implements SysUserService {
 
     /** 默认初始密码 */
     private static final String DEFAULT_PASSWORD = "123456";
+
+    /** 集团管理员可授予、可维护的角色编码白名单：普通人员 + 三员（同一账号可同时担任三员） */
+    private static final Set<String> GRANTABLE_ROLE_CODES =
+            Set.of("NORMAL", "SEC_SYS_ADMIN", "SEC_SEC_ADMIN", "SEC_AUDIT_ADMIN");
+
+    /** 上级/同级管理员角色：持有这些角色的账号，集团管理员不可增删改（防同级/自我提权） */
+    private static final Set<String> PROTECTED_ROLE_CODES =
+            Set.of("SUPER_ADMIN", "GROUP_ADMIN", "SYS_ADMIN");
+
+    /** 超级管理员种子账号（由 sql/upgrade-super-admin.sql 预置，集团管理员不可创建/覆盖） */
+    private static final String SUPER_ADMIN_USERNAME = "superadmin";
 
     private final SysUserMapper sysUserMapper;
 
@@ -46,14 +58,51 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     /**
-     * 校验目标角色必须是普通人员（NORMAL），防止集团管理员越权创建/变更为管理员角色。
+     * 校验目标角色全部落在集团管理员可授予白名单内（NORMAL + 三个三员角色）。
+     * 任何一枚角色出界即整体拒绝，杜绝授予 SYS_ADMIN / GROUP_ADMIN / SUPER_ADMIN。
      *
-     * @param roleId 目标角色ID
+     * @param roleIds 目标角色ID列表（非空）
      */
-    private void assertNormalRole(Long roleId) {
-        SysRole role = sysRoleMapper.selectById(roleId);
-        if (role == null || !"NORMAL".equals(role.getRoleCode())) {
-            throw new BusinessException("集团管理员仅能创建/维护普通人员（NORMAL）账号");
+    private void assertGrantableRoles(List<Long> roleIds) {
+        for (Long roleId : roleIds) {
+            SysRole role = roleId == null ? null : sysRoleMapper.selectById(roleId);
+            if (role == null) {
+                throw new BusinessException("角色不存在：" + roleId);
+            }
+            if (!GRANTABLE_ROLE_CODES.contains(role.getRoleCode())) {
+                throw new BusinessException("集团管理员仅能授予普通人员（NORMAL）或三员角色，不能授予「"
+                        + role.getRoleName() + "」");
+            }
+        }
+    }
+
+    /**
+     * 校验目标账号可被集团管理员维护：账号现有身份必须全部落在白名单内。
+     * 持有 SYS_ADMIN / GROUP_ADMIN / SUPER_ADMIN 的账号整体拒绝，同时封堵「降级/改密后接管」路径。
+     *
+     * @param userId 被维护账号ID
+     */
+    private void assertUserMaintainable(Long userId) {
+        List<SysRole> existRoles = sysUserRoleMapper.selectRolesByUserId(userId);
+        if (existRoles == null || existRoles.isEmpty()) {
+            // 兼容历史数据：无用户-角色关联时回退 sys_user.role_id 主角色
+            existRoles = new ArrayList<>();
+            SysUser existUser = sysUserMapper.selectById(userId);
+            if (existUser != null && existUser.getRoleId() != null) {
+                SysRole primaryRole = sysRoleMapper.selectById(existUser.getRoleId());
+                if (primaryRole != null) {
+                    existRoles.add(primaryRole);
+                }
+            }
+        }
+        for (SysRole existRole : existRoles) {
+            if (PROTECTED_ROLE_CODES.contains(existRole.getRoleCode())) {
+                throw new BusinessException("「" + existRole.getRoleName()
+                        + "」账号归超级管理员直接管辖，集团管理员不可新增、修改、删除或重置密码");
+            }
+            if (!GRANTABLE_ROLE_CODES.contains(existRole.getRoleCode())) {
+                throw new BusinessException("集团管理员仅能维护普通人员（NORMAL）与三员角色账号");
+            }
         }
     }
 
@@ -113,12 +162,15 @@ public class SysUserServiceImpl implements SysUserService {
         if (dto.getUsername() == null || dto.getUsername().isBlank()) {
             throw new BusinessException("登录账号不能为空");
         }
-        List<Long> roleIds = resolveRoleIds(dto);
-        roleIds.forEach(this::assertNormalRole);
         String username = dto.getUsername().trim();
+        if (SUPER_ADMIN_USERNAME.equalsIgnoreCase(username)) {
+            throw new BusinessException("「" + SUPER_ADMIN_USERNAME + "」为系统预置的超级管理员账号，不可创建或覆盖");
+        }
         if (sysUserMapper.countByUsername(username, null) > 0) {
             throw new BusinessException("登录账号已存在");
         }
+        List<Long> roleIds = resolveRoleIds(dto);
+        assertGrantableRoles(roleIds);
         SysUser user = new SysUser();
         user.setUsername(username);
         user.setNickname(dto.getNickname());
@@ -139,22 +191,11 @@ public class SysUserServiceImpl implements SysUserService {
         if (exist == null) {
             throw new BusinessException("账号不存在");
         }
-        // 被维护账号的现有身份必须全部是普通人员，防止集团管理员改动管理员账号（含降级/提权）
-        List<SysRole> existRoles = sysUserRoleMapper.selectRolesByUserId(dto.getId());
-        if (existRoles.isEmpty()) {
-            SysRole existRole = sysRoleMapper.selectById(exist.getRoleId());
-            if (existRole != null && !"NORMAL".equals(existRole.getRoleCode())) {
-                throw new BusinessException("集团管理员仅能维护普通人员（NORMAL）账号");
-            }
-        } else {
-            for (SysRole existRole : existRoles) {
-                if (!"NORMAL".equals(existRole.getRoleCode())) {
-                    throw new BusinessException("集团管理员仅能维护普通人员（NORMAL）账号");
-                }
-            }
-        }
+        // 被维护账号的现有身份必须全部在可维护范围内，持有上级/同级管理员角色一律整体拒绝
+        assertUserMaintainable(dto.getId());
+        // 目标身份同样必须全部在白名单内（防提权）
         List<Long> roleIds = resolveRoleIds(dto);
-        roleIds.forEach(this::assertNormalRole);
+        assertGrantableRoles(roleIds);
         SysUser user = new SysUser();
         user.setId(dto.getId());
         user.setNickname(dto.getNickname());
@@ -172,6 +213,8 @@ public class SysUserServiceImpl implements SysUserService {
         if (sysUserMapper.selectById(id) == null) {
             throw new BusinessException("账号不存在");
         }
+        // 上级/同级管理员账号（含 superadmin）不可被集团管理员删除
+        assertUserMaintainable(id);
         sysUserMapper.deleteById(id);
         sysUserRoleMapper.deleteByUserId(id);
         sysPermissionService.clearCache();
@@ -182,6 +225,8 @@ public class SysUserServiceImpl implements SysUserService {
         if (sysUserMapper.selectById(id) == null) {
             throw new BusinessException("账号不存在");
         }
+        // 重置密码等同接管账号，须先校验可维护范围
+        assertUserMaintainable(id);
         String rawPassword = (newPassword == null || newPassword.isBlank()) ? DEFAULT_PASSWORD : newPassword;
         sysUserMapper.updatePassword(id, passwordEncoder.encode(rawPassword));
     }

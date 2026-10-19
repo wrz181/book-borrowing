@@ -8,6 +8,7 @@
         <result property="bookId" column="book_id"/>
         <result property="borrowerName" column="borrower_name"/>
         <result property="borrowerNo" column="borrower_no"/>
+        <result property="borrowerId" column="borrower_id"/>
         <result property="borrowDate" column="borrow_date"/>
         <result property="dueDate" column="due_date"/>
         <result property="returnDate" column="return_date"/>
@@ -22,7 +23,7 @@
     </resultMap>
 
     <sql id="Record_Column_List">
-        r.id, r.book_id, r.borrower_name, r.borrower_no, r.borrow_date, r.due_date,
+        r.id, r.book_id, r.borrower_name, r.borrower_no, r.borrower_id, r.borrow_date, r.due_date,
         r.return_date, r.status, r.remark, r.create_time, r.update_time,
         b.book_name, b.author, c.category_name, r.is_deleted
     </sql>
@@ -34,6 +35,10 @@
     -->
     <sql id="Record_Query_Where">
         r.is_deleted = 0
+        <!-- 数据范围收敛：scopeBorrowerId 非空时只查本人记录；该参数由 Service 按登录态权限计算，不来自客户端 -->
+        <if test="scopeBorrowerId != null">
+            AND r.borrower_id = #{scopeBorrowerId}
+        </if>
         <if test="query != null">
             <if test="query.bookName != null and query.bookName != ''">
                 AND b.book_name LIKE CONCAT('%', #{query.bookName}, '%')
@@ -75,17 +80,21 @@
         </where>
     </select>
 
-    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+    <select id="selectById" resultMap="BaseResultMap">
         SELECT <include refid="Record_Column_List"/>
         FROM borrow_record r
         LEFT JOIN book b ON r.book_id = b.id
         LEFT JOIN book_category c ON b.category_id = c.id
         WHERE r.id = #{id} AND r.is_deleted = 0
+        <!-- 详情同样按数据范围收敛，避免通过 ID 直接读取他人记录 -->
+        <if test="scopeBorrowerId != null">
+            AND r.borrower_id = #{scopeBorrowerId}
+        </if>
     </select>
 
     <insert id="insert" parameterType="BorrowRecord" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO borrow_record (book_id, borrower_name, borrower_no, borrow_date, due_date, return_date, status, remark)
-        VALUES (#{bookId}, #{borrowerName}, #{borrowerNo}, #{borrowDate}, #{dueDate}, #{returnDate}, #{status}, #{remark})
+        INSERT INTO borrow_record (book_id, borrower_name, borrower_no, borrower_id, borrow_date, due_date, return_date, status, remark)
+        VALUES (#{bookId}, #{borrowerName}, #{borrowerNo}, #{borrowerId}, #{borrowDate}, #{dueDate}, #{returnDate}, #{status}, #{remark})
     </insert>
 
     <update id="updateById" parameterType="BorrowRecord">

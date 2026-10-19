@@ -63,10 +63,25 @@ public interface IntegrationAppService {
     String generateTicket(Long appId, Long userId);
 
     /**
-     * 校验并解析 ticket。
+     * 校验并解析 ticket（不消费票据，已被消费的票据同样返回 null）。
      *
      * @param ticket ticket 字符串
-     * @return 解析结果，无效返回 null
+     * @return 解析结果，无效、过期或已被消费返回 null
      */
     SsoTicketDTO validateTicket(String ticket);
+
+    /**
+     * 消费 ticket：校验通过后登记为已使用，写操作成功后调用，保证票据一次性。
+     *
+     * @param ticket ticket 字符串
+     */
+    void consumeTicket(String ticket);
+
+    /**
+     * 判断 ticket 是否已被消费（用于区分「无效/过期」与「已使用」两种提示）。
+     *
+     * @param ticket ticket 字符串
+     * @return 已消费返回 true
+     */
+    boolean isTicketConsumed(String ticket);
 }

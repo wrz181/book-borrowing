@@ -18,12 +18,12 @@
         </el-menu-item>
 
         <!-- 待办与消息：业务功能，留在门户（维护类功能已迁 /backend 后台） -->
-        <el-menu-item v-if="userStore.hasPerm('group:todo')" index="/admin/todos">
+        <el-menu-item v-if="userStore.hasAny(['group:todo', 'todo:own'])" index="/admin/todos">
           <el-icon><Bell /></el-icon>
           <span>待办中心</span>
           <el-badge v-if="todoCount > 0" :value="todoCount" class="menu-badge" />
         </el-menu-item>
-        <el-menu-item v-if="userStore.hasPerm('group:message')" index="/admin/messages">
+        <el-menu-item v-if="userStore.hasAny(['group:message', 'message:own'])" index="/admin/messages">
           <el-icon><ChatDotRound /></el-icon>
           <span>消息中心</span>
           <el-badge v-if="msgCount > 0" :value="msgCount" class="menu-badge" />
@@ -147,10 +147,11 @@ async function openApp(app) {
 }
 
 async function loadBadges() {
-  if (userStore.hasPerm('group:todo')) {
+  // 待办/消息共用同一批接口，数据范围恒为本人（徽标即本人的未办/未读数）
+  if (userStore.hasAny(['group:todo', 'todo:own'])) {
     todoCount.value = Number(await countPendingTodos()) || 0
   }
-  if (userStore.hasPerm('group:message')) {
+  if (userStore.hasAny(['group:message', 'message:own'])) {
     msgCount.value = Number(await countUnreadMessages()) || 0
   }
 }
@@ -168,7 +169,12 @@ async function onSwitchRole(roleId) {
     userStore.setPermissions(data.permissions)
     if (data.activeRoleId) userStore.setActiveRoleId(data.activeRoleId)
     ElMessage.success('已切换身份：' + (userStore.activeRole?.roleName || ''))
-    if (route.meta.perm && !userStore.hasPerm(route.meta.perm)) {
+    // 与路由守卫保持一致：优先按 meta.perms（命中其一）判断，未声明时回退单值 meta.perm
+    const perms = route.meta.perms
+    const denied = Array.isArray(perms) && perms.length
+      ? !userStore.hasAny(perms)
+      : route.meta.perm && !userStore.hasPerm(route.meta.perm)
+    if (denied) {
       router.push('/books')
     }
   } catch {

@@ -3,6 +3,7 @@ package com.example.bookborrowing.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -42,6 +43,18 @@ public class GlobalExceptionHandler {
             message = ex.getBindingResult().getFieldError().getDefaultMessage();
         }
         return Result.error(message);
+    }
+
+    /**
+     * 请求方法不支持：本系统只允许 GET 与 POST（写操作用 POST，删除用 POST + 逻辑删除）。
+     *
+     * @param e 方法不支持异常
+     * @return 失败响应
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public Result<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        log.warn("不支持的请求方法：{}", e.getMethod());
+        return Result.error(405, "不支持的请求方法：" + e.getMethod() + "，本系统仅允许 GET 与 POST");
     }
 
     /**

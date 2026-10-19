@@ -9,6 +9,7 @@ import com.example.bookborrowing.entity.IntegrationApp;
 import com.example.bookborrowing.entity.IntegrationForm;
 import com.example.bookborrowing.entity.MessageItem;
 import com.example.bookborrowing.entity.TodoItem;
+import com.example.bookborrowing.mapper.SysUserMapper;
 import com.example.bookborrowing.service.ErpIntegrationService;
 import com.example.bookborrowing.service.IntegrationAppService;
 import com.example.bookborrowing.service.MessageService;
@@ -40,14 +41,18 @@ public class OpenIntegrationController {
 
     private final ErpIntegrationService erpIntegrationService;
 
+    private final SysUserMapper sysUserMapper;
+
     public OpenIntegrationController(IntegrationAppService integrationAppService,
                                      TodoService todoService,
                                      MessageService messageService,
-                                     ErpIntegrationService erpIntegrationService) {
+                                     ErpIntegrationService erpIntegrationService,
+                                     SysUserMapper sysUserMapper) {
         this.integrationAppService = integrationAppService;
         this.todoService = todoService;
         this.messageService = messageService;
         this.erpIntegrationService = erpIntegrationService;
+        this.sysUserMapper = sysUserMapper;
     }
 
     /**
@@ -83,7 +88,7 @@ public class OpenIntegrationController {
      */
     @PostMapping("/forms/{id}/handle")
     public Result<IntegrationForm> handleForm(@PathVariable Long id, @RequestBody ErpFormHandleDTO dto) {
-        return Result.success(erpIntegrationService.handleForm(id, dto.getTicket(), dto.getHandleComment()));
+        return Result.success(erpIntegrationService.handleForm(id, dto.getTicket(), dto.getHandleComment(), dto.getAgreed()));
     }
 
     /**
@@ -110,9 +115,16 @@ public class OpenIntegrationController {
                                      @RequestHeader("X-App-Secret") String secret,
                                      @RequestBody TodoItem todo) {
         IntegrationApp app = verify(appId, secret);
+        if (todo == null) {
+            throw new BusinessException("待办内容不能为空");
+        }
+        // 收件人必须真实存在且未删除，否则待办投递后永久无人可见
+        checkReceiver(todo.getReceiverId(), "待办接收人");
         todo.setAppId(app.getId());
         if (todo.getBizType() == null) {
             todo.setBizType("INTEGRATION_FORM");
+        } else {
+            checkTypeLength(todo.getBizType(), "bizType");
         }
         return Result.success(todoService.create(todo));
     }
@@ -130,11 +142,45 @@ public class OpenIntegrationController {
                                            @RequestHeader("X-App-Secret") String secret,
                                            @RequestBody MessageItem message) {
         IntegrationApp app = verify(appId, secret);
+        if (message == null) {
+            throw new BusinessException("消息内容不能为空");
+        }
+        // 收件人必须真实存在且未删除，否则消息投递后永久无人可见
+        checkReceiver(message.getReceiverId(), "消息接收人");
         message.setAppId(app.getId());
         if (message.getMsgType() == null) {
             message.setMsgType("INTEGRATION");
+        } else {
+            checkTypeLength(message.getMsgType(), "msgType");
         }
         return Result.success(messageService.create(message));
+    }
+
+    /**
+     * 校验接收人存在且未被逻辑删除（receiver_id 无外键约束，需在此拦截非法投递）。
+     *
+     * @param receiverId 接收人ID
+     * @param fieldName  字段中文名（用于错误提示）
+     */
+    private void checkReceiver(Long receiverId, String fieldName) {
+        if (receiverId == null) {
+            throw new BusinessException(fieldName + "不能为空（receiverId）");
+        }
+        if (sysUserMapper.selectById(receiverId) == null) {
+            throw new BusinessException(fieldName + "不存在或已被删除：receiverId=" + receiverId);
+        }
+    }
+
+    /**
+     * 校验类型字段长度，与表字段 VARCHAR(50) 对齐，超长直接报业务错误而非数据库异常。
+     *
+     * @param value     字段值
+     * @param fieldName 字段英文名
+     */
+    private void checkTypeLength(String value, String fieldName) {
+        if (value.length() > 50) {
+            throw new BusinessException(fieldName + " 长度不能超过 50 个字符");
+        }
     }
 
     /**
