@@ -88,12 +88,4 @@ public interface BookMapper {
      * @return 影响行数
      */
     int addStock(Long id);
-
-    /**
-     * 统计图书关联的借阅记录数量。
-     *
-     * @param bookId 图书ID
-     * @return 借阅记录数量
-     */
-    int countRecordByBookId(Long bookId);
 }

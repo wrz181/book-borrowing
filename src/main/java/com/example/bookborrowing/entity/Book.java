@@ -46,6 +46,9 @@ public class Book {
     /** 更新时间 */
     private LocalDateTime updateTime;
 
+    /** 逻辑删除标记：0-未删除 1-已删除 */
+    private Integer isDeleted;
+
     /** 分类名称（关联查询字段，非数据库列） */
     private String categoryName;
 

@@ -18,38 +18,39 @@
         <result property="bookName" column="book_name"/>
         <result property="author" column="author"/>
         <result property="categoryName" column="category_name"/>
+        <result property="isDeleted" column="is_deleted"/>
     </resultMap>
 
     <sql id="Record_Column_List">
         r.id, r.book_id, r.borrower_name, r.borrower_no, r.borrow_date, r.due_date,
         r.return_date, r.status, r.remark, r.create_time, r.update_time,
-        b.book_name, b.author, c.category_name
+        b.book_name, b.author, c.category_name, r.is_deleted
     </sql>
 
     <!--
       动态条件查询：图书名称、借阅人姓名、借阅证号、状态、借阅日期范围，
       各条件均可单独使用，也可组合使用；结果按借阅日期倒序。
+      r.is_deleted = 0 作为基础条件，保证逻辑删除的记录不参与查询。
     -->
     <sql id="Record_Query_Where">
-        <where>
-            <if test="query != null">
-                <if test="query.bookName != null and query.bookName != ''">
-                    AND b.book_name LIKE CONCAT('%', #{query.bookName}, '%')
-                </if>
-                <if test="query.borrowerName != null and query.borrowerName != ''">
-                    AND r.borrower_name LIKE CONCAT('%', #{query.borrowerName}, '%')
-                </if>
-                <if test="query.borrowerNo != null and query.borrowerNo != ''">
-                    AND r.borrower_no LIKE CONCAT('%', #{query.borrowerNo}, '%')
-                </if>
-                <if test="query.status != null">
-                    AND r.status = #{query.status}
-                </if>
-                <if test="query.beginDate != null and query.endDate != null">
-                    AND r.borrow_date BETWEEN #{query.beginDate} AND #{query.endDate}
-                </if>
+        r.is_deleted = 0
+        <if test="query != null">
+            <if test="query.bookName != null and query.bookName != ''">
+                AND b.book_name LIKE CONCAT('%', #{query.bookName}, '%')
             </if>
-        </where>
+            <if test="query.borrowerName != null and query.borrowerName != ''">
+                AND r.borrower_name LIKE CONCAT('%', #{query.borrowerName}, '%')
+            </if>
+            <if test="query.borrowerNo != null and query.borrowerNo != ''">
+                AND r.borrower_no LIKE CONCAT('%', #{query.borrowerNo}, '%')
+            </if>
+            <if test="query.status != null">
+                AND r.status = #{query.status}
+            </if>
+            <if test="query.beginDate != null and query.endDate != null">
+                AND r.borrow_date BETWEEN #{query.beginDate} AND #{query.endDate}
+            </if>
+        </if>
     </sql>
 
     <select id="selectPage" resultMap="BaseResultMap">
@@ -57,7 +58,9 @@
         FROM borrow_record r
         LEFT JOIN book b ON r.book_id = b.id
         LEFT JOIN book_category c ON b.category_id = c.id
-        <include refid="Record_Query_Where"/>
+        <where>
+            <include refid="Record_Query_Where"/>
+        </where>
         ORDER BY r.borrow_date DESC, r.id DESC
         LIMIT #{offset}, #{limit}
     </select>
@@ -67,7 +70,9 @@
         FROM borrow_record r
         LEFT JOIN book b ON r.book_id = b.id
         LEFT JOIN book_category c ON b.category_id = c.id
-        <include refid="Record_Query_Where"/>
+        <where>
+            <include refid="Record_Query_Where"/>
+        </where>
     </select>
 
     <select id="selectById" parameterType="long" resultMap="BaseResultMap">
@@ -75,7 +80,7 @@
         FROM borrow_record r
         LEFT JOIN book b ON r.book_id = b.id
         LEFT JOIN book_category c ON b.category_id = c.id
-        WHERE r.id = #{id}
+        WHERE r.id = #{id} AND r.is_deleted = 0
     </select>
 
     <insert id="insert" parameterType="BorrowRecord" useGeneratedKeys="true" keyProperty="id">
@@ -91,38 +96,41 @@
             borrow_date = #{borrowDate},
             due_date = #{dueDate},
             remark = #{remark}
-        WHERE id = #{id}
+        WHERE id = #{id} AND is_deleted = 0
     </update>
 
-    <delete id="deleteById" parameterType="long">
-        DELETE FROM borrow_record WHERE id = #{id}
-    </delete>
+    <!-- 逻辑删除：仅标记 is_deleted = 1，不物理删除行 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE borrow_record SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
 
     <update id="returnRecord">
         UPDATE borrow_record
         SET return_date = #{returnDate}, status = 2
-        WHERE id = #{id} AND status = 1
+        WHERE id = #{id} AND status = 1 AND is_deleted = 0
     </update>
 
-    <!-- R03 重复业务校验：同一借阅人、同一图书、同一借阅日期不得重复生成借阅记录 -->
+    <!-- R03 重复业务校验：同一借阅人、同一图书、同一借阅日期不得重复生成借阅记录（仅统计未删除记录） -->
     <select id="countByBorrowerBookDate" resultType="int">
         SELECT COUNT(1)
         FROM borrow_record
         WHERE book_id = #{bookId}
           AND borrower_no = #{borrowerNo}
           AND borrow_date = #{borrowDate}
+          AND is_deleted = 0
         <if test="excludeId != null">
             AND id &lt;&gt; #{excludeId}
         </if>
     </select>
 
-    <!-- 业务保护：同一借阅人对同一图书不得存在多条未归还记录 -->
+    <!-- 业务保护：同一借阅人对同一图书不得存在多条未归还记录（仅统计未删除记录） -->
     <select id="countUnreturned" resultType="int">
         SELECT COUNT(1)
         FROM borrow_record
         WHERE book_id = #{bookId}
           AND borrower_no = #{borrowerNo}
           AND status = 1
+          AND is_deleted = 0
         <if test="excludeId != null">
             AND id &lt;&gt; #{excludeId}
         </if>
