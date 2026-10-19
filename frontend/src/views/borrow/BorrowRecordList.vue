@@ -61,10 +61,10 @@
       <el-table-column label="操作" width="220" align="center" fixed="right">
         <template #default="{ row }">
           <el-button v-if="row.status === 1" type="success" text @click="onReturn(row)">归还</el-button>
-          <el-button type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
+          <el-button v-permission="'borrow:manage'" type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
           <el-popconfirm title="确认删除该借阅记录？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
             <template #reference>
-              <el-button type="danger" text :icon="Delete">删除</el-button>
+              <el-button v-permission="'borrow:manage'" type="danger" text :icon="Delete">删除</el-button>
             </template>
           </el-popconfirm>
         </template>

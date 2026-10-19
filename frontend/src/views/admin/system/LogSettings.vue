@@ -1,7 +1,7 @@
 <template>
   <div class="page-card">
     <el-alert
-      title="按业务模块设置日志级别（实时生效）；下方日志按「级别 ≥ 所选级别」过滤展示。"
+      title="按业务模块设置日志级别（实时生效）；级别已持久化到配置库（sys_config），重启后仍然生效。下方日志按「级别 ≥ 所选级别」过滤展示。「其他」分组汇集未映射到业务模块的日志，其级别只作为过滤下限。"
       type="info"
       :closable="false"
       show-icon
@@ -10,8 +10,15 @@
 
     <el-card shadow="never" class="module-card">
       <template #header>日志类型设置</template>
-      <el-table :data="modules" border size="small">
-        <el-table-column prop="moduleName" label="业务模块" width="140" />
+      <el-table :data="moduleOptions" border size="small">
+        <el-table-column label="业务模块" width="140">
+          <template #default="{ row }">
+            <el-tooltip v-if="isOtherModule(row)" :content="OTHER_TIP" placement="top">
+              <span>{{ row.moduleName }}<el-tag type="info" size="small" class="other-tag">汇总</el-tag></span>
+            </el-tooltip>
+            <span v-else>{{ row.moduleName }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="logger" label="Logger" min-width="320" show-overflow-tooltip />
         <el-table-column label="当前级别" width="200" align="center">
           <template #default="{ row }">
@@ -29,7 +36,7 @@
           <span>内存日志</span>
           <div class="log-actions">
             <el-select v-model="query.module" placeholder="全部模块" clearable size="small" style="width: 150px" @change="onSearch">
-              <el-option v-for="m in modules" :key="m.module" :label="m.moduleName" :value="m.module" />
+              <el-option v-for="m in moduleOptions" :key="m.module" :label="m.moduleName" :value="m.module" />
             </el-select>
             <el-select v-model="query.level" placeholder="默认级别" clearable size="small" style="width: 130px" @change="onSearch">
               <el-option v-for="lv in levels" :key="lv" :label="lv" :value="lv" />
@@ -71,12 +78,16 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Refresh, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { listLogModules, setLogLevel, pageLogs, clearLogs } from '../../../api/system'
 
 const levels = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR']
+
+/** 未映射到业务模块的日志分组编码，与后端 LogStore.MODULE_OTHER 保持一致 */
+const OTHER_MODULE = 'OTHER'
+const OTHER_TIP = '汇集未映射到业务模块的日志（含第三方框架）；该级别仅作为下方日志的过滤下限，不改变框架输出'
 
 const modules = ref([])
 const logs = ref([])
@@ -85,6 +96,19 @@ const pageNum = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const query = reactive({ module: '', level: '' })
+
+/** 可配置 / 可筛选模块：保证「其他」分组始终可选，即使后端未返回该分组 */
+const moduleOptions = computed(() => {
+  const list = modules.value.filter((m) => m && m.module)
+  if (!list.some((m) => m.module === OTHER_MODULE)) {
+    list.push({ module: OTHER_MODULE, moduleName: '其他', logger: OTHER_TIP, level: 'INFO' })
+  }
+  return list
+})
+
+function isOtherModule(row) {
+  return row && row.module === OTHER_MODULE
+}
 
 function levelTag(level) {
   if (level === 'ERROR') return 'danger'
@@ -145,6 +169,9 @@ onMounted(async () => {
 }
 .tip {
   margin-bottom: 12px;
+}
+.other-tag {
+  margin-left: 6px;
 }
 .module-card {
   margin-bottom: 16px;

@@ -8,18 +8,20 @@ import com.example.bookborrowing.service.TodoService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 集团管理员 - 待办中心接口。
- * 需要 group:todo 权限。
+ * 待办中心接口。
+ * <p>
+ * 鉴权：持有 group:todo（集团管理员）或 todo:own（普通人员）任一即可访问。
+ * 数据范围恒为当前登录用户：只能看到 receiver_id = 自己 的记录，客户端无法通过查询参数指定他人接收人。
  */
 @RestController
 @RequestMapping("/api/todos")
-@RequirePermission("group:todo")
+@RequirePermission(anyOf = {"group:todo", "todo:own"})
 public class TodoController {
 
     private final TodoService todoService;
@@ -29,7 +31,8 @@ public class TodoController {
     }
 
     /**
-     * 分页查询当前用户的待办。
+     * 分页查询当前登录用户的待办。
+     * 接收人一律取自登录态，前端传入的任何接收人参数都被忽略。
      *
      * @param status   状态（0-待办 1-已办，null 全部）
      * @param pageNum  页码
@@ -43,6 +46,10 @@ public class TodoController {
                                              @RequestParam(defaultValue = "10") int pageSize,
                                              HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            // 兜底：拿不到登录态时绝不查询
+            return Result.error(401, "未登录或登录已过期");
+        }
         return Result.success(todoService.page(userId, status, pageNum, pageSize));
     }
 
@@ -65,7 +72,7 @@ public class TodoController {
      * @param request HTTP 请求
      * @return 空响应
      */
-    @PutMapping("/{id}/done")
+    @PostMapping("/{id}/done")
     public Result<Void> done(@PathVariable Long id, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("currentUserId");
         todoService.done(id, userId);

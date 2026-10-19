@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 
 /**
  * 图书采购单实体，对应表 book_purchase。
- * 业务闭环：草稿 → 提交下发外部集成应用 → 对方回执 → 入库（增加或新增图书库存）。
+ * 业务闭环：草稿 → 提交申请 → 审批下发 ERP（超级节点）→ 回执入库 → 已入库；
+ * 采购单状态流转全部由流程引擎驱动。
  */
 @Data
 public class BookPurchase {
@@ -18,6 +19,9 @@ public class BookPurchase {
 
     /** 状态：已提交（已下发外部平台） */
     public static final int STATUS_SUBMITTED = 1;
+
+    /** 状态：已回执（外部平台已处理集成表单，等待入库） */
+    public static final int STATUS_ACKED = 3;
 
     /** 状态：已入库 */
     public static final int STATUS_STOCKED_IN = 2;
@@ -67,7 +71,7 @@ public class BookPurchase {
     /** 关联集成表单ID（下发后生成） */
     private Long integrationFormId;
 
-    /** 状态：0-草稿 1-已提交 2-已入库 9-已取消 */
+    /** 状态：0-草稿 1-已提交 2-已入库 3-已回执 9-已取消 */
     private Integer status;
 
     /** 期望到货日期 */
@@ -108,4 +112,10 @@ public class BookPurchase {
 
     /** 关联集成表单状态：0-待处理 1-已处理（非表字段，关联查询；未下发为 null） */
     private Integer formStatus;
+
+    /** 流程当前节点（非表字段，join purchase_flow 出的只读字段；无流程实例为 null） */
+    private String currentNode;
+
+    /** 流程节点结果：0-进行中 1-已同意 2-已打回 3-已取消（非表字段，join purchase_flow 出的只读字段；无流程实例为 null） */
+    private Integer nodeStatus;
 }

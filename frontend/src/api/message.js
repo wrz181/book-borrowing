@@ -12,10 +12,10 @@ export function countUnreadMessages() {
 
 /** 标记单条已读 */
 export function readMessage(id) {
-  return request.put(`/messages/${id}/read`)
+  return request.post(`/messages/${id}/read`)
 }
 
 /** 标记全部已读 */
 export function readAllMessages() {
-  return request.put('/messages/read-all')
+  return request.post('/messages/read-all')
 }

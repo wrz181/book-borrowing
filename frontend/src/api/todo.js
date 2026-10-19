@@ -12,5 +12,5 @@ export function countPendingTodos() {
 
 /** 办理待办 */
 export function doneTodo(id) {
-  return request.put(`/todos/${id}/done`)
+  return request.post(`/todos/${id}/done`)
 }

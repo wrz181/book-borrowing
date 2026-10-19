@@ -24,6 +24,9 @@ public class BorrowRecord {
     /** 借阅人学号/借阅证号 */
     private String borrowerNo;
 
+    /** 借阅人用户ID（关联 sys_user.id；历史数据可能为空，由升级脚本按学号回填） */
+    private Long borrowerId;
+
     /** 借阅日期 */
     private LocalDate borrowDate;
 

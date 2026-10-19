@@ -1,10 +1,12 @@
 package com.example.bookborrowing.controller;
 
 import com.example.bookborrowing.annotation.RequirePermission;
+import com.example.bookborrowing.common.BusinessException;
 import com.example.bookborrowing.common.PageResult;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.UserSaveDTO;
 import com.example.bookborrowing.entity.SysUser;
+import com.example.bookborrowing.mapper.SysUserRoleMapper;
 import com.example.bookborrowing.service.SysUserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,11 +19,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
  * 集团管理员 - 账号管理接口。
  * 需要 group:user 权限。
+ * 可授予身份：普通人员（NORMAL）+ 三员（SEC_SYS_ADMIN / SEC_SEC_ADMIN / SEC_AUDIT_ADMIN），
+ * 持有系统管理员、集团管理员、超级管理员的账号不在集团管理员可维护范围内。
  */
 @RestController
 @RequestMapping("/api/admin/users")
@@ -30,8 +35,11 @@ public class GroupAdminUserController {
 
     private final SysUserService sysUserService;
 
-    public GroupAdminUserController(SysUserService sysUserService) {
+    private final SysUserRoleMapper sysUserRoleMapper;
+
+    public GroupAdminUserController(SysUserService sysUserService, SysUserRoleMapper sysUserRoleMapper) {
         this.sysUserService = sysUserService;
+        this.sysUserRoleMapper = sysUserRoleMapper;
     }
 
     /**
@@ -52,7 +60,7 @@ public class GroupAdminUserController {
     }
 
     /**
-     * 新增账号（仅普通人员角色，防止越权创建管理员）。
+     * 新增账号（可授予普通人员与三员角色，一个账号可同时担任三员）。
      *
      * @param dto 账号参数
      * @return 空响应
@@ -64,13 +72,33 @@ public class GroupAdminUserController {
     }
 
     /**
-     * 修改账号（昵称、角色，仅限普通人员账号）。
+     * 查询账号已绑定的身份角色ID列表（编辑回填用）。
+     *
+     * @param id 用户ID
+     * @return 角色ID列表
+     */
+    @PostMapping("/{id}/role-ids")
+    public Result<List<Long>> roleIds(@PathVariable Long id) {
+        SysUser user = sysUserService.getById(id);
+        if (user == null) {
+            throw new BusinessException("账号不存在");
+        }
+        List<Long> roleIds = sysUserRoleMapper.selectRoleIdsByUserId(id);
+        if (roleIds == null || roleIds.isEmpty()) {
+            // 兼容历史数据：无用户-角色关联时回退主角色
+            roleIds = user.getRoleId() == null ? List.of() : List.of(user.getRoleId());
+        }
+        return Result.success(roleIds);
+    }
+
+    /**
+     * 修改账号（昵称、身份角色；仅限普通人员与三员账号，账号现有身份须全部在可维护范围内）。
      *
      * @param id  用户ID
      * @param dto 账号参数
      * @return 空响应
      */
-    @PutMapping("/{id}")
+    @PostMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody UserSaveDTO dto) {
         dto.setId(id);
         sysUserService.update(dto);
@@ -84,7 +112,7 @@ public class GroupAdminUserController {
      * @param request HTTP 请求
      * @return 空响应
      */
-    @DeleteMapping("/{id}")
+    @PostMapping("/{id}/delete")
     public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
         Long currentUserId = (Long) request.getAttribute("currentUserId");
         if (id.equals(currentUserId)) {
@@ -101,7 +129,7 @@ public class GroupAdminUserController {
      * @param body 请求体（可含 password 字段，留空重置为 123456）
      * @return 空响应
      */
-    @PutMapping("/{id}/password")
+    @PostMapping("/{id}/password")
     public Result<Void> resetPassword(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
         String password = body == null ? null : body.get("password");
         sysUserService.resetPassword(id, password);

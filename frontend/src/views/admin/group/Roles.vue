@@ -12,6 +12,7 @@
           @click="selectRole(role)"
         >
           <span>{{ role.roleName }}</span>
+          <el-tag v-if="role.roleCode === 'SUPER_ADMIN'" size="small" type="danger" class="builtin-tag">最高权限</el-tag>
           <el-tag v-if="role.isBuiltin === 1" size="small" type="info" class="builtin-tag">内置</el-tag>
         </el-menu-item>
       </el-menu>
@@ -29,8 +30,17 @@
       </template>
 
       <el-alert
-        v-if="currentRole && !canEdit"
-        title="内置管理员角色（系统管理员 / 集团管理员）的权限已锁定，不可修改。"
+        v-if="currentRole && currentRole.roleCode === 'SUPER_ADMIN'"
+        title="超级管理员（SUPER_ADMIN）为最高权限层：拥有全部权限（含集团管理、系统管理），由系统内置全量授予，任何界面不可修改、不可删除；其他管理员的权限均由该角色授予。"
+        type="error"
+        :closable="false"
+        show-icon
+        class="tip"
+      />
+
+      <el-alert
+        v-if="currentRole && !canEdit && currentRole.roleCode !== 'SUPER_ADMIN'"
+        title="内置管理员角色（系统管理员 / 集团管理员 / 三员角色）的权限已锁定，不可修改。"
         type="warning"
         :closable="false"
         show-icon
@@ -39,7 +49,7 @@
 
       <el-alert
         v-if="currentRole && currentRole.roleCode === 'NORMAL'"
-        title="普通人员默认仅可查看数据与发起借阅表单；可按需勾选权限点。"
+        title="普通人员默认仅可查看数据与发起借书 / 归还；可按需勾选权限点。"
         type="info"
         :closable="false"
         show-icon

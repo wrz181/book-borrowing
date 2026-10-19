@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>类ERP平台（模拟第三方系统）</title>
   <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* 已撤销标签（style.css 不在本次改动范围，样式在此补充） */
+    .tag-cancel {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 10px;
+      background: #f4f4f5;
+      color: #909399;
+      font-size: 12px;
+    }
+  </style>
 </head>
 <body>
   <!-- 登录 / 单点登录落地页 -->
@@ -56,6 +67,19 @@
           <h2>已处理表单</h2>
         </div>
         <div id="handled-list" class="list"></div>
+      </section>
+
+      <!-- OA 推送的采购表单：流程引擎「审批通过」时主动推送，在此给出同意 / 不同意 -->
+      <section class="card">
+        <div class="card-head">
+          <h2>OA 推送的采购表单</h2>
+          <button id="oa-refresh-btn" class="ghost small">刷新</button>
+        </div>
+        <p class="card-tip">图书借阅管理系统的采购流程走到「审批」并提交时，会主动把采购单推送到本平台并挂起等待回执。
+          在此选择<b>同意</b>：流程完成并自动入库；选择<b>不同意</b>：采购单被打回，可修改后重新提交。</p>
+        <p class="card-tip">办理需要单点登录票据，且票据为写操作一次性：办理成功后会提示「本次票据已使用，请重新从图书借阅系统进入」。</p>
+        <p class="card-tip">图书借阅管理系统侧流程被<b>取消</b>或<b>超时打回</b>时，会主动调用本平台的撤单接口：对应表单标记为<b>已撤销</b>并显示撤销原因，不再提供同意/不同意按钮。</p>
+        <div id="oa-forms-list" class="list"></div>
       </section>
 
       <!-- 发起新表单（模拟第三方业务操作） -->

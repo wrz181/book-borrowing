@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.PurchaseFlowMapper">
+
+    <resultMap id="BaseResultMap" type="PurchaseFlow">
+        <id property="id" column="id"/>
+        <result property="purchaseId" column="purchase_id"/>
+        <result property="bizType" column="biz_type"/>
+        <result property="appId" column="app_id"/>
+        <result property="currentNode" column="current_node"/>
+        <result property="nodeStatus" column="node_status"/>
+        <result property="erpFormId" column="erp_form_id"/>
+        <result property="applicantId" column="applicant_id"/>
+        <result property="applicantName" column="applicant_name"/>
+        <result property="startTime" column="start_time"/>
+        <result property="approveTime" column="approve_time"/>
+        <result property="erpSubmitTime" column="erp_submit_time"/>
+        <result property="erpCallbackTime" column="erp_callback_time"/>
+        <result property="finishTime" column="finish_time"/>
+        <result property="rejectReason" column="reject_reason"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, purchase_id, biz_type, app_id, current_node, node_status, erp_form_id,
+        applicant_id, applicant_name, start_time, approve_time, erp_submit_time,
+        erp_callback_time, finish_time, reject_reason, is_deleted, create_time, update_time
+    </sql>
+
+    <select id="selectByPurchaseId" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM purchase_flow
+        WHERE purchase_id = #{purchaseId} AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM purchase_flow
+        WHERE id = #{id} AND is_deleted = 0
+    </select>
+
+    <insert id="insert" parameterType="PurchaseFlow" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO purchase_flow
+            (purchase_id, biz_type, app_id, current_node, node_status, erp_form_id,
+             applicant_id, applicant_name, start_time, approve_time, erp_submit_time,
+             erp_callback_time, finish_time, reject_reason)
+        VALUES
+            (#{purchaseId}, #{bizType}, #{appId}, #{currentNode}, #{nodeStatus}, #{erpFormId},
+             #{applicantId}, #{applicantName}, #{startTime}, #{approveTime}, #{erpSubmitTime},
+             #{erpCallbackTime}, #{finishTime}, #{rejectReason})
+    </insert>
+
+    <!-- 只更新传入的非空字段：流程引擎按节点推进时只传本次变化的字段，其余保持库中原值 -->
+    <update id="updateById" parameterType="PurchaseFlow">
+        UPDATE purchase_flow
+        <set>
+            <if test="purchaseId != null">purchase_id = #{purchaseId},</if>
+            <if test="bizType != null">biz_type = #{bizType},</if>
+            <if test="appId != null">app_id = #{appId},</if>
+            <if test="currentNode != null">current_node = #{currentNode},</if>
+            <if test="nodeStatus != null">node_status = #{nodeStatus},</if>
+            <if test="erpFormId != null">erp_form_id = #{erpFormId},</if>
+            <if test="applicantId != null">applicant_id = #{applicantId},</if>
+            <if test="applicantName != null">applicant_name = #{applicantName},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="approveTime != null">approve_time = #{approveTime},</if>
+            <if test="erpSubmitTime != null">erp_submit_time = #{erpSubmitTime},</if>
+            <if test="erpCallbackTime != null">erp_callback_time = #{erpCallbackTime},</if>
+            <if test="finishTime != null">finish_time = #{finishTime},</if>
+            <if test="rejectReason != null">reject_reason = #{rejectReason},</if>
+            update_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+    <!-- 逻辑删除 -->
+    <update id="deleteByPurchaseId" parameterType="long">
+        UPDATE purchase_flow SET is_deleted = 1 WHERE purchase_id = #{purchaseId} AND is_deleted = 0
+    </update>
+
+    <!-- 物理删除：删除草稿/已取消采购单时连同流程实例一起清掉（轨迹由 PurchaseFlowLogMapper 先清） -->
+    <delete id="deletePhysicallyByPurchaseId" parameterType="long">
+        DELETE FROM purchase_flow WHERE purchase_id = #{purchaseId}
+    </delete>
+
+</mapper>

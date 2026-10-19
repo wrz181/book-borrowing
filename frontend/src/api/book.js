@@ -17,10 +17,10 @@ export function createBook(data) {
 
 /** 更新图书 */
 export function updateBook(id, data) {
-  return request.put(`/books/${id}`, data)
+  return request.post(`/books/${id}`, data)
 }
 
 /** 删除图书 */
 export function deleteBook(id) {
-  return request.delete(`/books/${id}`)
+  return request.post(`/books/${id}/delete`)
 }

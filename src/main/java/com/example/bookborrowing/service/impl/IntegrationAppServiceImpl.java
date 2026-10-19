@@ -11,7 +11,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 单点登录应用集成业务实现。
@@ -25,6 +28,15 @@ public class IntegrationAppServiceImpl implements IntegrationAppService {
 
     /** 默认初始密码 */
     private static final String DEFAULT_SECRET_PREFIX = "SSO-";
+
+    /** 已消费票据登记：ticket -> 该票据自身的过期时间（毫秒），票据过期后登记项即可清理 */
+    private static final Map<String, Long> CONSUMED_TICKETS = new ConcurrentHashMap<>();
+
+    /** 已消费票据清理间隔：每分钟最多清理一次，避免每次写入都全量扫描 */
+    private static final long CONSUMED_SWEEP_INTERVAL_MILLIS = 60 * 1000L;
+
+    /** 下一次允许清理的时间戳（毫秒），用 CAS 保证同一时刻只有一个线程清理 */
+    private static final AtomicLong NEXT_CONSUMED_SWEEP_AT = new AtomicLong(0L);
 
     private final IntegrationAppMapper integrationAppMapper;
 
@@ -55,12 +67,6 @@ public class IntegrationAppServiceImpl implements IntegrationAppService {
         }
         if (app.getSsoSecret() == null || app.getSsoSecret().isBlank()) {
             app.setSsoSecret(DEFAULT_SECRET_PREFIX + UUID.randomUUID().toString().replace("-", ""));
-        }
-        if (app.getTodoEnabled() == null) {
-            app.setTodoEnabled(1);
-        }
-        if (app.getMsgEnabled() == null) {
-            app.setMsgEnabled(1);
         }
         if (app.getEnabled() == null) {
             app.setEnabled(1);
@@ -111,6 +117,53 @@ public class IntegrationAppServiceImpl implements IntegrationAppService {
 
     @Override
     public SsoTicketDTO validateTicket(String ticket) {
+        ParsedTicket parsed = parseTicket(ticket);
+        if (parsed == null) {
+            return null;
+        }
+        // 已消费的票据一律视为无效：读接口在票据被消费后同样被拒
+        if (isTicketConsumed(ticket)) {
+            return null;
+        }
+        return new SsoTicketDTO(parsed.appId, parsed.userId);
+    }
+
+    @Override
+    public void consumeTicket(String ticket) {
+        ParsedTicket parsed = parseTicket(ticket);
+        if (parsed == null) {
+            throw new BusinessException("单点登录票据无效或已过期，请重新从图书借阅系统进入");
+        }
+        sweepConsumedTickets(System.currentTimeMillis());
+        if (CONSUMED_TICKETS.putIfAbsent(ticket, parsed.expire) != null) {
+            throw new BusinessException("单点登录票据已使用，请重新从图书借阅系统进入");
+        }
+    }
+
+    @Override
+    public boolean isTicketConsumed(String ticket) {
+        if (ticket == null || ticket.isBlank()) {
+            return false;
+        }
+        Long expire = CONSUMED_TICKETS.get(ticket);
+        if (expire == null) {
+            return false;
+        }
+        if (expire < System.currentTimeMillis()) {
+            // 票据本身已过期，登记项失去意义，顺手移除
+            CONSUMED_TICKETS.remove(ticket, expire);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 校验格式、有效期、应用启用状态与签名（不判断是否已被消费）。
+     *
+     * @param ticket ticket 字符串
+     * @return 解析结果，无效返回 null
+     */
+    private ParsedTicket parseTicket(String ticket) {
         if (ticket == null || ticket.isBlank() || !ticket.contains(".")) {
             return null;
         }
@@ -150,7 +203,20 @@ public class IntegrationAppServiceImpl implements IntegrationAppService {
         if (!sign(payload, app.getSsoSecret()).equals(signature)) {
             return null;
         }
-        return new SsoTicketDTO(appId, userId);
+        return new ParsedTicket(appId, userId, expire);
+    }
+
+    /**
+     * 清理已过期票据的登记项，保证进程内结构不无界增长。
+     *
+     * @param now 当前时间戳（毫秒）
+     */
+    private void sweepConsumedTickets(long now) {
+        long next = NEXT_CONSUMED_SWEEP_AT.get();
+        if (now < next || !NEXT_CONSUMED_SWEEP_AT.compareAndSet(next, now + CONSUMED_SWEEP_INTERVAL_MILLIS)) {
+            return;
+        }
+        CONSUMED_TICKETS.values().removeIf(expire -> expire == null || expire < now);
     }
 
     /**
@@ -181,6 +247,24 @@ public class IntegrationAppServiceImpl implements IntegrationAppService {
         }
         if (app.getAppUrl() == null || app.getAppUrl().isBlank()) {
             throw new BusinessException("应用地址不能为空");
+        }
+    }
+
+    /**
+     * ticket 解析结果，额外保留过期时间，供已消费票据登记项的清理使用。
+     */
+    private static final class ParsedTicket {
+
+        private final Long appId;
+
+        private final Long userId;
+
+        private final long expire;
+
+        private ParsedTicket(Long appId, Long userId, long expire) {
+            this.appId = appId;
+            this.userId = userId;
+            this.expire = expire;
         }
     }
 }

@@ -17,15 +17,15 @@ export function createBorrowRecord(data) {
 
 /** 更新借阅记录 */
 export function updateBorrowRecord(id, data) {
-  return request.put(`/borrow-records/${id}`, data)
+  return request.post(`/borrow-records/${id}`, data)
 }
 
 /** 删除借阅记录 */
 export function deleteBorrowRecord(id) {
-  return request.delete(`/borrow-records/${id}`)
+  return request.post(`/borrow-records/${id}/delete`)
 }
 
 /** 归还图书 */
 export function returnBorrowRecord(id) {
-  return request.put(`/borrow-records/${id}/return`)
+  return request.post(`/borrow-records/${id}/return`)
 }

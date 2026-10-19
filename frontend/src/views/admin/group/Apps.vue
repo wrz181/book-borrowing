@@ -30,12 +30,6 @@
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column label="待办/消息" width="110" align="center">
-        <template #default="{ row }">
-          <el-tag v-if="row.todoEnabled === 1" size="small" type="success">待办</el-tag>
-          <el-tag v-if="row.msgEnabled === 1" size="small" type="warning" class="ml4">消息</el-tag>
-        </template>
-      </el-table-column>
       <el-table-column label="状态" width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="row.enabled === 1 ? 'success' : 'info'" size="small">
@@ -66,12 +60,6 @@
         </el-form-item>
         <el-form-item label="单点登录密钥">
           <el-input v-model="editing.ssoSecret" placeholder="留空自动生成" maxlength="100" />
-        </el-form-item>
-        <el-form-item label="待办集成">
-          <el-switch v-model="editing.todoEnabled" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-        <el-form-item label="消息集成">
-          <el-switch v-model="editing.msgEnabled" :active-value="1" :inactive-value="0" />
         </el-form-item>
         <el-form-item label="启用状态">
           <el-switch v-model="editing.enabled" :active-value="1" :inactive-value="0" />
@@ -104,7 +92,7 @@ const showSecret = reactive({})
 
 const editing = reactive({
   id: null, appName: '', appUrl: '', appType: 'SSO', ssoSecret: '',
-  todoEnabled: 1, msgEnabled: 1, enabled: 1, description: ''
+  enabled: 1, description: ''
 })
 const rules = {
   appName: [{ required: true, message: '请输入应用名称', trigger: 'blur' }],
@@ -128,13 +116,13 @@ function openDialog(row) {
   if (row) {
     Object.assign(editing, {
       id: row.id, appName: row.appName, appUrl: row.appUrl, appType: row.appType || 'SSO',
-      ssoSecret: row.ssoSecret, todoEnabled: row.todoEnabled, msgEnabled: row.msgEnabled,
+      ssoSecret: row.ssoSecret,
       enabled: row.enabled, description: row.description
     })
   } else {
     Object.assign(editing, {
       id: null, appName: '', appUrl: 'http://localhost:5174/', appType: 'SSO', ssoSecret: '',
-      todoEnabled: 1, msgEnabled: 1, enabled: 1, description: ''
+      enabled: 1, description: ''
     })
   }
   dialogVisible.value = true

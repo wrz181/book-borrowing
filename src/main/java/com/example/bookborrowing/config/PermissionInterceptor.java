@@ -64,13 +64,36 @@ public class PermissionInterceptor implements HandlerInterceptor {
             return false;
         }
         Set<String> owned = loadPermissions(userId, activeRole);
+        // value()：需全部满足（既有单值用法语义不变）
         for (String required : annotation.value()) {
             if (!owned.contains(required)) {
                 writeForbidden(response, 403, "无操作权限：" + required);
                 return false;
             }
         }
+        // anyOf()：满足其一即可
+        String[] anyOf = annotation.anyOf();
+        if (anyOf.length > 0 && !containsAny(owned, anyOf)) {
+            writeForbidden(response, 403, "无操作权限：" + String.join(" 或 ", anyOf));
+            return false;
+        }
         return true;
+    }
+
+    /**
+     * 判断权限集合是否命中任意一个权限编码。
+     *
+     * @param owned 已拥有的权限集合
+     * @param codes 要求的权限编码
+     * @return 命中任意一个返回 true
+     */
+    private static boolean containsAny(Set<String> owned, String[] codes) {
+        for (String code : codes) {
+            if (owned.contains(code)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

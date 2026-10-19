@@ -13,11 +13,11 @@ import java.util.List;
 public interface MessageItemMapper {
 
     /**
-     * 分页查询某接收人的消息。
+     * 分页查询消息。
      *
      * @param offset     偏移量
      * @param limit      每页条数
-     * @param receiverId 接收人ID
+     * @param receiverId 接收人ID（null 表示不限接收人，能力保留）
      * @param readFlag   是否已读（可空，null 表示全部）
      * @return 消息列表
      */
@@ -27,9 +27,9 @@ public interface MessageItemMapper {
                                  @Param("readFlag") Integer readFlag);
 
     /**
-     * 统计某接收人的消息总数。
+     * 统计消息总数。
      *
-     * @param receiverId 接收人ID
+     * @param receiverId 接收人ID（null 表示不限接收人，能力保留）
      * @param readFlag   是否已读（可空）
      * @return 总记录数
      */

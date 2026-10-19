@@ -24,7 +24,10 @@
 
     <sql id="Todo_Query_Where">
         t.is_deleted = 0
-        AND t.receiver_id = #{receiverId}
+        <!-- receiverId 为 null 时不限接收人（能力保留，当前调用方均传入登录用户ID） -->
+        <if test="receiverId != null">
+            AND t.receiver_id = #{receiverId}
+        </if>
         <if test="status != null">
             AND t.status = #{status}
         </if>

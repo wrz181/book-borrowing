@@ -12,10 +12,10 @@ export function createCategory(data) {
 
 /** 更新分类 */
 export function updateCategory(id, data) {
-  return request.put(`/categories/${id}`, data)
+  return request.post(`/categories/${id}`, data)
 }
 
 /** 删除分类 */
 export function deleteCategory(id) {
-  return request.delete(`/categories/${id}`)
+  return request.post(`/categories/${id}/delete`)
 }

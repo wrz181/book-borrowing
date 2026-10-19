@@ -12,10 +12,10 @@ export function createApp(data) {
 
 /** 修改应用 */
 export function updateApp(id, data) {
-  return request.put(`/admin/apps/${id}`, data)
+  return request.post(`/admin/apps/${id}`, data)
 }
 
 /** 删除应用 */
 export function deleteApp(id) {
-  return request.delete(`/admin/apps/${id}`)
+  return request.post(`/admin/apps/${id}/delete`)
 }

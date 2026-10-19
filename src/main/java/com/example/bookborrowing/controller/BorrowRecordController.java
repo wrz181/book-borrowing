@@ -6,6 +6,7 @@ import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.BorrowRecordQueryDTO;
 import com.example.bookborrowing.entity.BorrowRecord;
 import com.example.bookborrowing.service.BorrowRecordService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 借阅记录接口：借阅的增删改查、动态条件分页查询、归还操作。
+ * <p>
+ * 数据范围由登录态决定（不接收任何前端传入的用户/范围参数）：
+ * 持有 borrow:manage 的账号（集团管理员）可读写全部记录；
+ * 其余账号（普通人员、系统管理员等）只能读写 borrower_id = 当前登录用户ID 的记录。
  */
 @RestController
 @RequestMapping("/api/borrow-records")
@@ -36,36 +41,53 @@ public class BorrowRecordController {
      * @param pageNum  页码，默认1
      * @param pageSize 每页条数，默认10
      * @param query    动态查询条件
+     * @param request  HTTP 请求（拦截器已注入 currentUserId）
      * @return 分页结果
      */
     @GetMapping("/page")
     public Result<PageResult<BorrowRecord>> page(@RequestParam(defaultValue = "1") int pageNum,
                                                  @RequestParam(defaultValue = "10") int pageSize,
-                                                 BorrowRecordQueryDTO query) {
-        return Result.success(borrowRecordService.page(pageNum, pageSize, query));
+                                                 BorrowRecordQueryDTO query,
+                                                 HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return Result.error(401, "未登录或登录已过期");
+        }
+        Long scopeBorrowerId = scopeBorrowerId(request, userId);
+        return Result.success(borrowRecordService.page(pageNum, pageSize, query, scopeBorrowerId));
     }
 
     /**
      * 查询借阅记录详情（含关联图书名称、作者、分类名称）。
      *
-     * @param id 记录ID
+     * @param id      记录ID
+     * @param request HTTP 请求
      * @return 借阅记录实体
      */
     @GetMapping("/{id}")
-    public Result<BorrowRecord> detail(@PathVariable Long id) {
-        return Result.success(borrowRecordService.getDetail(id));
+    public Result<BorrowRecord> detail(@PathVariable Long id, HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return Result.error(401, "未登录或登录已过期");
+        }
+        return Result.success(borrowRecordService.getDetail(id, scopeBorrowerId(request, userId)));
     }
 
     /**
-     * 新增借阅记录：执行 R03 重复借阅校验与库存扣减。
+     * 新增借阅记录：执行 R03 重复借阅校验与库存扣减，borrower_id 由登录态写入。
      *
-     * @param record 借阅记录实体
+     * @param record  借阅记录实体
+     * @param request HTTP 请求
      * @return 空响应
      */
     @PostMapping
     @RequirePermission("borrow:apply")
-    public Result<Void> create(@RequestBody BorrowRecord record) {
-        borrowRecordService.create(record);
+    public Result<Void> create(@RequestBody BorrowRecord record, HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return Result.error(401, "未登录或登录已过期");
+        }
+        borrowRecordService.create(record, userId, manage(request, userId));
         return Result.success();
     }
 
@@ -76,7 +98,7 @@ public class BorrowRecordController {
      * @param record 借阅记录实体
      * @return 空响应
      */
-    @PutMapping("/{id}")
+    @PostMapping("/{id}")
     @RequirePermission("borrow:manage")
     public Result<Void> update(@PathVariable Long id, @RequestBody BorrowRecord record) {
         record.setId(id);
@@ -90,7 +112,7 @@ public class BorrowRecordController {
      * @param id 记录ID
      * @return 空响应
      */
-    @DeleteMapping("/{id}")
+    @PostMapping("/{id}/delete")
     @RequirePermission("borrow:manage")
     public Result<Void> delete(@PathVariable Long id) {
         borrowRecordService.remove(id);
@@ -98,15 +120,71 @@ public class BorrowRecordController {
     }
 
     /**
-     * 归还图书。
+     * 归还图书：非借阅管理身份只能归还本人记录。
      *
-     * @param id 记录ID
+     * @param id      记录ID
+     * @param request HTTP 请求
      * @return 空响应
      */
-    @PutMapping("/{id}/return")
+    @PostMapping("/{id}/return")
     @RequirePermission("borrow:return")
-    public Result<Void> returnBook(@PathVariable Long id) {
-        borrowRecordService.returnBook(id);
+    public Result<Void> returnBook(@PathVariable Long id, HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return Result.error(401, "未登录或登录已过期");
+        }
+        borrowRecordService.returnBook(id, userId, manage(request, userId));
         return Result.success();
+    }
+
+    /**
+     * 读取拦截器注入的当前登录用户ID。
+     *
+     * @param request HTTP 请求
+     * @return 用户ID，未登录返回 null
+     */
+    private Long currentUserId(HttpServletRequest request) {
+        Object attr = request.getAttribute("currentUserId");
+        return attr instanceof Long userId ? userId : null;
+    }
+
+    /**
+     * 计算数据范围：持有 borrow:manage 返回 null（不限范围），否则返回本人用户ID。
+     *
+     * @param request HTTP 请求
+     * @param userId  当前登录用户ID
+     * @return 数据范围用户ID
+     */
+    private Long scopeBorrowerId(HttpServletRequest request, Long userId) {
+        return manage(request, userId) ? null : userId;
+    }
+
+    /**
+     * 判断当前登录用户是否持有借阅管理权限（borrow:manage）。
+     *
+     * @param request HTTP 请求
+     * @param userId  当前登录用户ID
+     * @return 持有返回 true
+     */
+    private boolean manage(HttpServletRequest request, Long userId) {
+        return borrowRecordService.hasBorrowManage(userId, parseActiveRole(request));
+    }
+
+    /**
+     * 解析请求头 X-Active-Role（顶栏身份切换）中的身份角色ID。
+     *
+     * @param request HTTP 请求
+     * @return 角色ID；未携带或格式非法返回 null（按全身份权限并集判定）
+     */
+    private Long parseActiveRole(HttpServletRequest request) {
+        String header = request.getHeader("X-Active-Role");
+        if (header == null || header.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(header.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

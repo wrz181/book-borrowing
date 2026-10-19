@@ -26,6 +26,7 @@ public class MessageServiceImpl implements MessageService {
         int page = Math.max(pageNum, 1);
         int size = pageSize <= 0 ? 10 : pageSize;
         int offset = (page - 1) * size;
+        // userId 为 null 时不限接收人（能力保留，当前调用方均传入登录用户ID）
         List<MessageItem> list = messageItemMapper.selectPage(offset, size, userId, readFlag);
         long total = messageItemMapper.selectCount(userId, readFlag);
         return new PageResult<>(list, total, page, size);

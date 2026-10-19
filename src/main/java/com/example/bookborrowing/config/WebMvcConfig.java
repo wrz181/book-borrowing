@@ -29,7 +29,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // 前后端分离开发模式（Vue dev server 5173 -> 后端 8080）
         registry.addMapping("/api/**")
                 .allowedOriginPatterns("*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);

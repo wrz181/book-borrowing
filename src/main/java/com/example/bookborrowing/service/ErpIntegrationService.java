@@ -43,9 +43,10 @@ public interface ErpIntegrationService {
      * @param formId  表单ID
      * @param ticket  单点登录票据
      * @param comment 处理意见
+     * @param agreed  ERP 审批结论：true-同意 false-不同意 null-不涉及（保持旧行为）
      * @return 处理后的表单
      */
-    IntegrationForm handleForm(Long formId, String ticket, String comment);
+    IntegrationForm handleForm(Long formId, String ticket, String comment, Boolean agreed);
 
     /**
      * 分页查询集成表单（集团管理员查看下发/回流记录）。

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.IntegrationBizMapper">
+
+    <resultMap id="BaseResultMap" type="IntegrationBiz">
+        <id property="id" column="id"/>
+        <result property="bizType" column="biz_type"/>
+        <result property="bizName" column="biz_name"/>
+        <result property="appId" column="app_id"/>
+        <result property="superNodeName" column="super_node_name"/>
+        <result property="superNodeUrl" column="super_node_url"/>
+        <result property="callbackTimeoutMinutes" column="callback_timeout_minutes"/>
+        <result property="enabled" column="enabled"/>
+        <result property="description" column="description"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, biz_type, biz_name, app_id, super_node_name, super_node_url,
+        callback_timeout_minutes, enabled, description, is_deleted, create_time, update_time
+    </sql>
+
+    <!--
+      动态条件：业务类型、业务名称模糊匹配，启用状态精确过滤；
+      is_deleted = 0 为基础条件，逻辑删除的记录不参与查询。
+    -->
+    <sql id="Biz_Query_Where">
+        is_deleted = 0
+        <if test="bizType != null and bizType != ''">
+            AND biz_type LIKE CONCAT('%', #{bizType}, '%')
+        </if>
+        <if test="bizName != null and bizName != ''">
+            AND biz_name LIKE CONCAT('%', #{bizName}, '%')
+        </if>
+        <if test="enabled != null">
+            AND enabled = #{enabled}
+        </if>
+    </sql>
+
+    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM integration_biz
+        WHERE id = #{id} AND is_deleted = 0
+    </select>
+
+    <!-- 流程引擎取超级节点配置：只认启用且未删除的一条 -->
+    <select id="selectByBizType" parameterType="string" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM integration_biz
+        WHERE biz_type = #{bizType} AND enabled = 1 AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM integration_biz
+        <where>
+            <include refid="Biz_Query_Where"/>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="selectCount" resultType="long">
+        SELECT COUNT(1)
+        FROM integration_biz
+        <where>
+            <include refid="Biz_Query_Where"/>
+        </where>
+    </select>
+
+    <insert id="insert" parameterType="IntegrationBiz" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO integration_biz
+            (biz_type, biz_name, app_id, super_node_name, super_node_url,
+             callback_timeout_minutes, enabled, description)
+        VALUES
+            (#{bizType}, #{bizName}, #{appId}, #{superNodeName}, #{superNodeUrl},
+             #{callbackTimeoutMinutes}, #{enabled}, #{description})
+    </insert>
+
+    <update id="updateById" parameterType="IntegrationBiz">
+        UPDATE integration_biz
+        SET biz_type                 = #{bizType},
+            biz_name                 = #{bizName},
+            app_id                   = #{appId},
+            super_node_name          = #{superNodeName},
+            super_node_url           = #{superNodeUrl},
+            callback_timeout_minutes = #{callbackTimeoutMinutes},
+            enabled                  = #{enabled},
+            description              = #{description}
+        WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+    <!-- 物理删除：直接从 integration_biz 删除该行，因此同一 biz_type 删除后可重新新增（uk_biz_type 不再被历史行占用） -->
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM integration_biz WHERE id = #{id}
+    </delete>
+
+    <select id="countByBizType" resultType="long">
+        SELECT COUNT(1)
+        FROM integration_biz
+        WHERE biz_type = #{bizType} AND is_deleted = 0
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>

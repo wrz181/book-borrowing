@@ -1,5 +1,6 @@
 package com.example.bookborrowing.controller;
 
+import com.example.bookborrowing.common.BusinessException;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.LoginDTO;
 import com.example.bookborrowing.entity.SysRole;
@@ -10,6 +11,8 @@ import com.example.bookborrowing.service.SysPermissionService;
 import com.example.bookborrowing.service.SysUserService;
 import com.example.bookborrowing.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +32,8 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final SysUserService sysUserService;
 
@@ -60,8 +65,16 @@ public class AuthController {
      */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody LoginDTO loginDTO) {
-        SysUser user = sysUserService.login(loginDTO.getUsername(), loginDTO.getPassword());
+        SysUser user;
+        try {
+            user = sysUserService.login(loginDTO.getUsername(), loginDTO.getPassword());
+        } catch (BusinessException e) {
+            // 登录失败为可预期的业务分支，记录用户名与原因，不记录密码
+            log.warn("用户登录失败：账号={}，原因={}", loginDTO.getUsername(), e.getMessage());
+            throw e;
+        }
         String token = jwtUtil.generate(user.getId(), user.getUsername());
+        log.info("用户登录成功：账号={}，用户ID={}，角色={}", user.getUsername(), user.getId(), user.getRoleCode());
 
         Map<String, Object> data = new HashMap<>(8);
         data.put("token", token);
@@ -83,9 +96,11 @@ public class AuthController {
         Long userId = (Long) request.getAttribute("currentUserId");
         SysUser user = sysUserService.getById(userId);
         if (user == null) {
+            log.warn("查询当前用户信息失败：登录状态无效，userId={}", userId);
             return Result.error(401, "登录状态无效，请重新登录");
         }
         Long activeRoleId = resolveActiveRole(request, user);
+        log.debug("查询当前用户信息：userId={}，身份角色ID={}", userId, activeRoleId);
         Map<String, Object> data = new HashMap<>(8);
         data.put("userInfo", buildUserInfo(user));
         data.put("roles", buildRoles(user.getId()));
