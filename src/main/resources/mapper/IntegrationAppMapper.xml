@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.IntegrationAppMapper">
+
+    <resultMap id="BaseResultMap" type="IntegrationApp">
+        <id property="id" column="id"/>
+        <result property="appName" column="app_name"/>
+        <result property="appUrl" column="app_url"/>
+        <result property="appType" column="app_type"/>
+        <result property="ssoSecret" column="sso_secret"/>
+        <result property="todoEnabled" column="todo_enabled"/>
+        <result property="msgEnabled" column="msg_enabled"/>
+        <result property="enabled" column="enabled"/>
+        <result property="description" column="description"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="isDeleted" column="is_deleted"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, app_name, app_url, app_type, sso_secret, todo_enabled, msg_enabled,
+        enabled, description, create_time, update_time, is_deleted
+    </sql>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM integration_app
+        WHERE is_deleted = 0
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectEnabled" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM integration_app
+        WHERE is_deleted = 0 AND enabled = 1
+        ORDER BY id ASC
+    </select>
+
+    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM integration_app
+        WHERE id = #{id} AND is_deleted = 0
+    </select>
+
+    <insert id="insert" parameterType="IntegrationApp" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO integration_app
+            (app_name, app_url, app_type, sso_secret, todo_enabled, msg_enabled, enabled, description)
+        VALUES
+            (#{appName}, #{appUrl}, #{appType}, #{ssoSecret}, #{todoEnabled}, #{msgEnabled}, #{enabled}, #{description})
+    </insert>
+
+    <update id="updateById" parameterType="IntegrationApp">
+        UPDATE integration_app
+        SET app_name = #{appName},
+            app_url = #{appUrl},
+            app_type = #{appType},
+            sso_secret = #{ssoSecret},
+            todo_enabled = #{todoEnabled},
+            msg_enabled = #{msgEnabled},
+            enabled = #{enabled},
+            description = #{description}
+        WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+    <!-- 逻辑删除 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE integration_app SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+</mapper>

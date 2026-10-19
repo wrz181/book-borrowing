@@ -41,4 +41,11 @@ frontend/dist/
 ### Mac OS ###
 .DS_Store
 
+### 敏感/本地文件（不入库）###
+*.sql
+sql/
 pom.xml
+src/main/resources/application.yml
+.workbuddy/
+*.log
+opencode-memory.md

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.BookPurchaseMapper">
+
+    <!-- 基础结果映射：含关联查询出的分类名称、应用名称 -->
+    <resultMap id="BaseResultMap" type="BookPurchase">
+        <id property="id" column="id"/>
+        <result property="purchaseNo" column="purchase_no"/>
+        <result property="bookName" column="book_name"/>
+        <result property="author" column="author"/>
+        <result property="isbn" column="isbn"/>
+        <result property="publisher" column="publisher"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="quantity" column="quantity"/>
+        <result property="unitPrice" column="unit_price"/>
+        <result property="totalPrice" column="total_price"/>
+        <result property="applicantId" column="applicant_id"/>
+        <result property="applicantName" column="applicant_name"/>
+        <result property="appId" column="app_id"/>
+        <result property="integrationFormId" column="integration_form_id"/>
+        <result property="status" column="status"/>
+        <result property="expectedDate" column="expected_date"/>
+        <result property="remark" column="remark"/>
+        <result property="submitTime" column="submit_time"/>
+        <result property="stockInTime" column="stock_in_time"/>
+        <result property="cancelTime" column="cancel_time"/>
+        <result property="stockInBookId" column="stock_in_book_id"/>
+        <result property="stockInRemark" column="stock_in_remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="appName" column="app_name"/>
+        <result property="formStatus" column="form_status"/>
+    </resultMap>
+
+    <sql id="Purchase_With_Ref_Column_List">
+        p.id, p.purchase_no, p.book_name, p.author, p.isbn, p.publisher, p.category_id,
+        p.quantity, p.unit_price, p.total_price, p.applicant_id, p.applicant_name,
+        p.app_id, p.integration_form_id, p.status, p.expected_date, p.remark,
+        p.submit_time, p.stock_in_time, p.cancel_time, p.stock_in_book_id, p.stock_in_remark,
+        p.create_time, p.update_time, p.is_deleted,
+        c.category_name AS category_name,
+        a.app_name AS app_name,
+        f.status AS form_status
+    </sql>
+
+    <!--
+      动态条件查询：采购单号、图书名称、分类、状态、应用五个条件均可单独或组合使用。
+      p.is_deleted = 0 作为基础条件，保证逻辑删除的记录不参与查询。
+    -->
+    <sql id="Purchase_Query_Where">
+        p.is_deleted = 0
+        <if test="query != null">
+            <if test="query.purchaseNo != null and query.purchaseNo != ''">
+                AND p.purchase_no LIKE CONCAT('%', #{query.purchaseNo}, '%')
+            </if>
+            <if test="query.bookName != null and query.bookName != ''">
+                AND p.book_name LIKE CONCAT('%', #{query.bookName}, '%')
+            </if>
+            <if test="query.categoryId != null">
+                AND p.category_id = #{query.categoryId}
+            </if>
+            <if test="query.status != null">
+                AND p.status = #{query.status}
+            </if>
+            <if test="query.appId != null">
+                AND p.app_id = #{query.appId}
+            </if>
+        </if>
+    </sql>
+
+    <select id="selectPage" resultMap="BaseResultMap">
+        SELECT <include refid="Purchase_With_Ref_Column_List"/>
+        FROM book_purchase p
+        LEFT JOIN book_category c ON p.category_id = c.id
+        LEFT JOIN integration_app a ON p.app_id = a.id
+        LEFT JOIN integration_form f ON p.integration_form_id = f.id
+        <where>
+            <include refid="Purchase_Query_Where"/>
+        </where>
+        ORDER BY p.id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="selectCount" resultType="long">
+        SELECT COUNT(1)
+        FROM book_purchase p
+        LEFT JOIN book_category c ON p.category_id = c.id
+        LEFT JOIN integration_app a ON p.app_id = a.id
+        LEFT JOIN integration_form f ON p.integration_form_id = f.id
+        <where>
+            <include refid="Purchase_Query_Where"/>
+        </where>
+    </select>
+
+    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Purchase_With_Ref_Column_List"/>
+        FROM book_purchase p
+        LEFT JOIN book_category c ON p.category_id = c.id
+        LEFT JOIN integration_app a ON p.app_id = a.id
+        LEFT JOIN integration_form f ON p.integration_form_id = f.id
+        WHERE p.id = #{id} AND p.is_deleted = 0
+    </select>
+
+    <insert id="insert" parameterType="BookPurchase" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO book_purchase
+            (purchase_no, book_name, author, isbn, publisher, category_id, quantity,
+             unit_price, total_price, applicant_id, applicant_name, status, expected_date, remark)
+        VALUES
+            (#{purchaseNo}, #{bookName}, #{author}, #{isbn}, #{publisher}, #{categoryId}, #{quantity},
+             #{unitPrice}, #{totalPrice}, #{applicantId}, #{applicantName}, #{status}, #{expectedDate}, #{remark})
+    </insert>
+
+    <!-- 仅草稿状态允许修改业务字段 -->
+    <update id="updateById" parameterType="BookPurchase">
+        UPDATE book_purchase
+        SET book_name = #{bookName},
+            author = #{author},
+            isbn = #{isbn},
+            publisher = #{publisher},
+            category_id = #{categoryId},
+            quantity = #{quantity},
+            unit_price = #{unitPrice},
+            total_price = #{totalPrice},
+            expected_date = #{expectedDate},
+            remark = #{remark}
+        WHERE id = #{id} AND is_deleted = 0 AND status = 0
+    </update>
+
+    <!-- 逻辑删除：仅标记 is_deleted = 1 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE book_purchase SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+    <update id="markSubmitted">
+        UPDATE book_purchase
+        SET status = 1,
+            app_id = #{appId},
+            integration_form_id = #{formId},
+            submit_time = #{submitTime}
+        WHERE id = #{id} AND is_deleted = 0 AND status = 0
+    </update>
+
+    <update id="markStockIn">
+        UPDATE book_purchase
+        SET status = 2,
+            stock_in_time = #{stockInTime},
+            stock_in_book_id = #{bookId},
+            stock_in_remark = #{remark}
+        WHERE id = #{id} AND is_deleted = 0 AND status = 1
+    </update>
+
+    <update id="markCanceled">
+        UPDATE book_purchase
+        SET status = 9,
+            cancel_time = #{cancelTime}
+        WHERE id = #{id} AND is_deleted = 0 AND status IN (0, 1)
+    </update>
+
+</mapper>

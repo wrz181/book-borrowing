@@ -1,5 +1,6 @@
 package com.example.bookborrowing.controller;
 
+import com.example.bookborrowing.annotation.RequirePermission;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.entity.BookCategory;
 import com.example.bookborrowing.service.BookCategoryService;
@@ -20,6 +21,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/categories")
+@RequirePermission("category:view")
 public class BookCategoryController {
 
     private final BookCategoryService bookCategoryService;
@@ -46,6 +48,7 @@ public class BookCategoryController {
      * @return 空响应
      */
     @PostMapping
+    @RequirePermission("category:manage")
     public Result<Void> create(@RequestBody BookCategory category) {
         bookCategoryService.create(category);
         return Result.success();
@@ -59,6 +62,7 @@ public class BookCategoryController {
      * @return 空响应
      */
     @PutMapping("/{id}")
+    @RequirePermission("category:manage")
     public Result<Void> update(@PathVariable Long id, @RequestBody BookCategory category) {
         category.setId(id);
         bookCategoryService.update(category);
@@ -72,6 +76,7 @@ public class BookCategoryController {
      * @return 空响应
      */
     @DeleteMapping("/{id}")
+    @RequirePermission("category:manage")
     public Result<Void> delete(@PathVariable Long id) {
         bookCategoryService.remove(id);
         return Result.success();

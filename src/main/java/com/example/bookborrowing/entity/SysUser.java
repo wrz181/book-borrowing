@@ -22,9 +22,18 @@ public class SysUser {
     /** 昵称/姓名 */
     private String nickname;
 
+    /** 角色ID（关联 sys_role.id） */
+    private Long roleId;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 
     /** 逻辑删除标记：0-未删除 1-已删除 */
     private Integer isDeleted;
+
+    /** 角色编码（非表字段，关联查询） */
+    private String roleCode;
+
+    /** 角色名称（非表字段，关联查询） */
+    private String roleName;
 }

@@ -1,5 +1,6 @@
 package com.example.bookborrowing.controller;
 
+import com.example.bookborrowing.annotation.RequirePermission;
 import com.example.bookborrowing.common.PageResult;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.BookQueryDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/books")
+@RequirePermission("book:view")
 public class BookController {
 
     private final BookService bookService;
@@ -61,6 +63,7 @@ public class BookController {
      * @return 空响应
      */
     @PostMapping
+    @RequirePermission("book:add")
     public Result<Void> create(@RequestBody Book book) {
         bookService.create(book);
         return Result.success();
@@ -74,6 +77,7 @@ public class BookController {
      * @return 空响应
      */
     @PutMapping("/{id}")
+    @RequirePermission("book:edit")
     public Result<Void> update(@PathVariable Long id, @RequestBody Book book) {
         book.setId(id);
         bookService.update(book);
@@ -87,6 +91,7 @@ public class BookController {
      * @return 空响应
      */
     @DeleteMapping("/{id}")
+    @RequirePermission("book:delete")
     public Result<Void> delete(@PathVariable Long id) {
         bookService.remove(id);
         return Result.success();

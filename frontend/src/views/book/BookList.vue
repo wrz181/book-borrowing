@@ -26,7 +26,7 @@
     </el-form>
 
     <div class="toolbar">
-      <el-button type="primary" :icon="Plus" @click="openDialog()">新增图书</el-button>
+      <el-button v-permission="'book:add'" type="primary" :icon="Plus" @click="openDialog()">新增图书</el-button>
     </div>
 
     <el-table :data="tableData" v-loading="loading" border stripe>
@@ -49,10 +49,10 @@
       <el-table-column label="操作" width="230" align="center" fixed="right">
         <template #default="{ row }">
           <el-button type="warning" text :icon="View" @click="router.push(`/books/detail/${row.id}`)">详情/借阅记录</el-button>
-          <el-button type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
+          <el-button v-permission="'book:edit'" type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
           <el-popconfirm title="确认删除该图书？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
             <template #reference>
-              <el-button type="danger" text :icon="Delete">删除</el-button>
+              <el-button v-permission="'book:delete'" type="danger" text :icon="Delete">删除</el-button>
             </template>
           </el-popconfirm>
         </template>

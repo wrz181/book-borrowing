@@ -12,7 +12,7 @@
         </el-form-item>
         <el-button type="primary" class="login-btn" :loading="loading" @click="onLogin">登 录</el-button>
       </el-form>
-      <p class="login-tip">初始账号：admin / 123456</p>
+      <p class="login-tip">初始账号：admin / 123456（系统管理员）、groupadmin / 123456（集团管理员）、user / 123456（普通人员）</p>
     </el-card>
   </div>
 </template>

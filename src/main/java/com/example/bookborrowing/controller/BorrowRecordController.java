@@ -1,5 +1,6 @@
 package com.example.bookborrowing.controller;
 
+import com.example.bookborrowing.annotation.RequirePermission;
 import com.example.bookborrowing.common.PageResult;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.BorrowRecordQueryDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/borrow-records")
+@RequirePermission("borrow:view")
 public class BorrowRecordController {
 
     private final BorrowRecordService borrowRecordService;
@@ -61,6 +63,7 @@ public class BorrowRecordController {
      * @return 空响应
      */
     @PostMapping
+    @RequirePermission("borrow:apply")
     public Result<Void> create(@RequestBody BorrowRecord record) {
         borrowRecordService.create(record);
         return Result.success();
@@ -74,6 +77,7 @@ public class BorrowRecordController {
      * @return 空响应
      */
     @PutMapping("/{id}")
+    @RequirePermission("borrow:manage")
     public Result<Void> update(@PathVariable Long id, @RequestBody BorrowRecord record) {
         record.setId(id);
         borrowRecordService.update(record);
@@ -87,6 +91,7 @@ public class BorrowRecordController {
      * @return 空响应
      */
     @DeleteMapping("/{id}")
+    @RequirePermission("borrow:manage")
     public Result<Void> delete(@PathVariable Long id) {
         borrowRecordService.remove(id);
         return Result.success();
@@ -99,6 +104,7 @@ public class BorrowRecordController {
      * @return 空响应
      */
     @PutMapping("/{id}/return")
+    @RequirePermission("borrow:return")
     public Result<Void> returnBook(@PathVariable Long id) {
         borrowRecordService.returnBook(id);
         return Result.success();
