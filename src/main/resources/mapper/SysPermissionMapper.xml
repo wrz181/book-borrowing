@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.SysPermissionMapper">
+
+    <resultMap id="BaseResultMap" type="SysPermission">
+        <id property="id" column="id"/>
+        <result property="permCode" column="perm_code"/>
+        <result property="permName" column="perm_name"/>
+        <result property="permType" column="perm_type"/>
+        <result property="module" column="module"/>
+        <result property="sortNo" column="sort_no"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, perm_code, perm_name, perm_type, module, sort_no, create_time
+        FROM sys_permission
+        ORDER BY sort_no ASC, id ASC
+    </select>
+
+    <select id="selectPermCodesByRoleId" parameterType="long" resultType="string">
+        SELECT perm_code FROM sys_role_permission WHERE role_id = #{roleId} ORDER BY perm_code ASC
+    </select>
+
+    <select id="selectPermCodesByUserId" parameterType="long" resultType="string">
+        SELECT DISTINCT rp.perm_code
+        FROM sys_user_role ur
+        JOIN sys_role_permission rp ON rp.role_id = ur.role_id
+        JOIN sys_user u ON u.id = ur.user_id AND u.is_deleted = 0
+        WHERE ur.user_id = #{userId}
+        ORDER BY rp.perm_code ASC
+    </select>
+
+    <select id="selectPermCodesByUserIdAndRole" resultType="string">
+        SELECT rp.perm_code
+        FROM sys_user_role ur
+        JOIN sys_role_permission rp ON rp.role_id = ur.role_id
+        WHERE ur.user_id = #{userId} AND ur.role_id = #{roleId}
+        ORDER BY rp.perm_code ASC
+    </select>
+
+</mapper>

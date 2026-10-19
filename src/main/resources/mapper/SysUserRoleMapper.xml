@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.SysUserRoleMapper">
+
+    <resultMap id="RoleResultMap" type="SysRole">
+        <id property="id" column="id"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+        <result property="description" column="description"/>
+        <result property="isBuiltin" column="is_builtin"/>
+    </resultMap>
+
+    <select id="selectRoleIdsByUserId" parameterType="long" resultType="long">
+        SELECT role_id FROM sys_user_role WHERE user_id = #{userId} ORDER BY role_id ASC
+    </select>
+
+    <select id="selectRolesByUserId" parameterType="long" resultMap="RoleResultMap">
+        SELECT r.id, r.role_code, r.role_name, r.description, r.is_builtin
+        FROM sys_user_role ur
+        JOIN sys_role r ON r.id = ur.role_id AND r.is_deleted = 0
+        WHERE ur.user_id = #{userId}
+        ORDER BY r.id ASC
+    </select>
+
+    <select id="existsUserRole" resultType="int">
+        SELECT COUNT(1) FROM sys_user_role WHERE user_id = #{userId} AND role_id = #{roleId}
+    </select>
+
+    <delete id="deleteByUserId" parameterType="long">
+        DELETE FROM sys_user_role WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertBatch">
+        INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES
+        <foreach collection="roleIds" item="rid" separator=",">
+            (#{userId}, #{rid})
+        </foreach>
+    </insert>
+
+</mapper>
