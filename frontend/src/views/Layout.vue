@@ -30,6 +30,18 @@
         </div>
       </el-header>
       <el-main class="main">
+        <!-- 最新公告（系统公告表 sys_notice 的最新一条） -->
+        <el-alert
+          v-if="latestNoticeData"
+          type="info"
+          :closable="true"
+          show-icon
+          class="notice-bar"
+        >
+          <template #title>
+            【公告】{{ latestNoticeData.title }}：{{ latestNoticeData.content }}
+          </template>
+        </el-alert>
         <router-view />
       </el-main>
     </el-container>
@@ -37,15 +49,18 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Notebook, Folder, List, UserFilled, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
+import { latestNotice } from '../api/notice'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+
+const latestNoticeData = ref(null)
 
 const activeMenu = computed(() => {
   const path = route.path
@@ -74,6 +89,15 @@ async function onLogout() {
   ElMessage.success('已退出登录')
   router.push('/login')
 }
+
+onMounted(async () => {
+  try {
+    latestNoticeData.value = await latestNotice()
+  } catch {
+    // 公告属辅助信息，加载失败不影响主流程
+    latestNoticeData.value = null
+  }
+})
 </script>
 
 <style scoped>
@@ -138,5 +162,8 @@ async function onLogout() {
 .main {
   background: #f0f2f5;
   padding: 16px;
+}
+.notice-bar {
+  margin-bottom: 12px;
 }
 </style>

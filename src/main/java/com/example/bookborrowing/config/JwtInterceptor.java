@@ -55,6 +55,8 @@ public class JwtInterceptor implements HandlerInterceptor {
             }
             request.setAttribute("currentUserId", user.getId());
             request.setAttribute("currentRole", user.getRole());
+            request.setAttribute("currentUserName",
+                    user.getNickname() == null || user.getNickname().isBlank() ? user.getUsername() : user.getNickname());
             return true;
         } catch (Exception e) {
             writeUnauthorized(response, "登录状态无效，请重新登录");

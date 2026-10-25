@@ -51,22 +51,72 @@
       </el-table>
       <el-empty v-if="book && (book.borrowRecords?.length ?? 0) === 0" description="该图书暂无借阅记录" />
     </div>
+
+    <!-- 图书评论区（book_comment 表，一对多） -->
+    <div class="records-block">
+      <div class="records-title">
+        <el-icon><ChatDotRound /></el-icon>
+        图书评论区
+      </div>
+      <div v-if="userStore.token" class="comment-form">
+        <el-rate v-model="commentForm.rating" />
+        <el-input
+          v-model="commentForm.content"
+          type="textarea"
+          :rows="2"
+          maxlength="500"
+          show-word-limit
+          placeholder="写下你对这本书的评价…"
+          style="margin-top: 8px"
+        />
+        <div style="margin-top: 8px; text-align: right">
+          <el-button type="primary" size="small" :loading="commentSubmitting" @click="onSubmitComment">发表评论</el-button>
+        </div>
+      </div>
+      <el-table :data="comments" border stripe>
+        <el-table-column prop="userName" label="评论人" width="110" />
+        <el-table-column label="评分" width="150" align="center">
+          <template #default="{ row }">
+            <el-rate :model-value="row.rating" disabled />
+          </template>
+        </el-table-column>
+        <el-table-column prop="content" label="评论内容" min-width="240" show-overflow-tooltip />
+        <el-table-column prop="createTime" label="评论时间" width="170" align="center" />
+        <el-table-column label="操作" width="90" align="center">
+          <template #default="{ row }">
+            <el-button
+              v-if="userStore.isAdmin || row.userId === userStore.userInfo?.id"
+              type="danger"
+              text
+              @click="onDeleteComment(row)"
+            >删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="comments.length === 0" description="暂无评论，来发表第一条吧" :image-size="60" />
+    </div>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Back, Notebook } from '@element-plus/icons-vue'
+import { Back, Notebook, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBookDetail } from '../../api/book'
 import { returnBorrowRecord } from '../../api/borrowRecord'
+import { listComments, createComment, deleteComment } from '../../api/comment'
+import { useUserStore } from '../../stores/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const book = ref(null)
+const comments = ref([])
+const commentSubmitting = ref(false)
+const commentForm = ref({ rating: 5, content: '' })
 
 /** 状态展示：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
 function statusMeta(status) {
@@ -91,16 +141,58 @@ async function loadData() {
 
 async function onReturn(row) {
   try {
-    await ElMessageBox.confirm(`确认申请归还《${book.value.bookName}》（借阅人：${row.borrowerName}）？提交后需系统管理员确认。`, '归还申请', { type: 'warning' })
+    await ElMessageBox.confirm(`确认申请归还《${book.value.bookName}》（借阅人：${row.borrowerName}）？提交后需管理员确认。`, '归还申请', { type: 'warning' })
   } catch {
     return
   }
   await returnBorrowRecord(row.id)
-  ElMessage.success('归还申请已提交，等待系统管理员确认')
+  ElMessage.success('归还申请已提交，等待管理员确认')
   await loadData()
 }
 
-onMounted(loadData)
+async function loadComments() {
+  try {
+    comments.value = await listComments(route.params.id)
+  } catch {
+    comments.value = []
+  }
+}
+
+async function onSubmitComment() {
+  if (!commentForm.value.content || !commentForm.value.content.trim()) {
+    ElMessage.warning('请填写评论内容')
+    return
+  }
+  commentSubmitting.value = true
+  try {
+    await createComment({
+      bookId: route.params.id,
+      rating: commentForm.value.rating || 5,
+      content: commentForm.value.content.trim()
+    })
+    ElMessage.success('评论发表成功')
+    commentForm.value = { rating: 5, content: '' }
+    await loadComments()
+  } finally {
+    commentSubmitting.value = false
+  }
+}
+
+async function onDeleteComment(row) {
+  try {
+    await ElMessageBox.confirm('确认删除该评论？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  await deleteComment(row.id)
+  ElMessage.success('删除成功')
+  await loadComments()
+}
+
+onMounted(() => {
+  loadData()
+  loadComments()
+})
 </script>
 
 <style scoped>

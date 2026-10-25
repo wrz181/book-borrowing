@@ -10,6 +10,7 @@ import com.example.bookborrowing.mapper.BookMapper;
 import com.example.bookborrowing.mapper.BorrowRecordMapper;
 import com.example.bookborrowing.mapper.SysUserMapper;
 import com.example.bookborrowing.service.BorrowRecordService;
+import com.example.bookborrowing.service.OperationLogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -51,11 +52,14 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
 
     private final SysUserMapper sysUserMapper;
 
+    private final OperationLogService operationLogService;
+
     public BorrowRecordServiceImpl(BorrowRecordMapper borrowRecordMapper, BookMapper bookMapper,
-                                   SysUserMapper sysUserMapper) {
+                                   SysUserMapper sysUserMapper, OperationLogService operationLogService) {
         this.borrowRecordMapper = borrowRecordMapper;
         this.bookMapper = bookMapper;
         this.sysUserMapper = sysUserMapper;
+        this.operationLogService = operationLogService;
     }
 
     @Override
@@ -102,6 +106,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         record.setStatus(STATUS_PENDING);
         record.setReturnDate(null);
         borrowRecordMapper.insert(record);
+        logAction(currentUserId, "提交申请", "申请借阅《" + book.getBookName() + "》");
         log.info("提交阅览申请成功：id={}，图书ID={}，借阅人={}，borrower_id={}",
                 record.getId(), record.getBookId(), record.getBorrowerName(), record.getBorrowerId());
     }
@@ -250,6 +255,8 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         if (book != null && (book.getStock() == null || book.getStock() <= 0)) {
             bookMapper.updateStatus(book.getId(), 0);
         }
+        logAction(operatorId, "确认借阅", "确认借出《" + (book == null ? exist.getBookId() : book.getBookName())
+                + "》给 " + exist.getBorrowerName());
         log.info("借阅审批通过：id={}，图书ID={}，操作人={}", id, exist.getBookId(), operatorId);
     }
 
@@ -281,6 +288,9 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         // 归还后恢复库存与可借状态
         bookMapper.addStock(exist.getBookId());
         bookMapper.updateStatus(exist.getBookId(), 1);
+        Book book = bookMapper.selectById(exist.getBookId());
+        String bookName = book == null ? exist.getBookId() + "号" : book.getBookName();
+        logAction(operatorId, "确认归还", exist.getBorrowerName() + " 归还《" + bookName + "》");
         log.info("归还审批通过：id={}，图书ID={}，操作人={}", id, exist.getBookId(), operatorId);
     }
 
@@ -310,5 +320,22 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
             throw new BusinessException("借阅记录不存在");
         }
         return record;
+    }
+
+    /**
+     * 记录关键操作日志（operation_log），操作人姓名取自登录账号昵称。
+     *
+     * @param userId 操作用户ID
+     * @param action 操作类型
+     * @param detail 操作详情
+     */
+    private void logAction(Long userId, String action, String detail) {
+        if (userId == null) {
+            return;
+        }
+        SysUser user = sysUserMapper.selectById(userId);
+        String userName = user == null ? null
+                : (user.getNickname() == null || user.getNickname().isBlank() ? user.getUsername() : user.getNickname());
+        operationLogService.record(userId, userName, action, detail);
     }
 }

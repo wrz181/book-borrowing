@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.SysNoticeMapper">
+
+    <resultMap id="BaseResultMap" type="SysNotice">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="publisherName" column="publisher_name"/>
+        <result property="createTime" column="create_time"/>
+        <result property="isDeleted" column="is_deleted"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, title, content, publisher_name, create_time, is_deleted
+    </sql>
+
+    <insert id="insert" parameterType="SysNotice" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_notice (title, content, publisher_name)
+        VALUES (#{title}, #{content}, #{publisherName})
+    </insert>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sys_notice
+        WHERE is_deleted = 0
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectLatest" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sys_notice
+        WHERE is_deleted = 0
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sys_notice
+        WHERE id = #{id} AND is_deleted = 0
+    </select>
+
+    <!-- 逻辑删除：仅标记 is_deleted = 1 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE sys_notice SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+</mapper>

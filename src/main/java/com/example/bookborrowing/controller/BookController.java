@@ -5,6 +5,8 @@ import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.BookQueryDTO;
 import com.example.bookborrowing.entity.Book;
 import com.example.bookborrowing.service.BookService;
+import com.example.bookborrowing.service.SearchHistoryService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,22 +24,34 @@ public class BookController {
 
     private final BookService bookService;
 
-    public BookController(BookService bookService) {
+    private final SearchHistoryService searchHistoryService;
+
+    public BookController(BookService bookService, SearchHistoryService searchHistoryService) {
         this.bookService = bookService;
+        this.searchHistoryService = searchHistoryService;
     }
 
     /**
      * 分页动态条件查询图书：图书名称、作者、分类、状态可单独或组合使用。
+     * 带关键字搜索时自动记录搜索历史（search_history）。
      *
      * @param pageNum  页码，默认1
      * @param pageSize 每页条数，默认10
      * @param query    动态查询条件
+     * @param request  HTTP 请求
      * @return 分页结果
      */
     @GetMapping("/page")
     public Result<PageResult<Book>> page(@RequestParam(defaultValue = "1") int pageNum,
                                          @RequestParam(defaultValue = "10") int pageSize,
-                                         BookQueryDTO query) {
+                                         BookQueryDTO query,
+                                         HttpServletRequest request) {
+        Object attr = request.getAttribute("currentUserId");
+        if (attr instanceof Long userId) {
+            String keyword = (query.getBookName() == null || query.getBookName().isBlank())
+                    ? query.getAuthor() : query.getBookName();
+            searchHistoryService.record(userId, keyword);
+        }
         return Result.success(bookService.page(pageNum, pageSize, query));
     }
 

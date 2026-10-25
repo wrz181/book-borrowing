@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.BookCommentMapper">
+
+    <resultMap id="BaseResultMap" type="BookComment">
+        <id property="id" column="id"/>
+        <result property="bookId" column="book_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userName" column="user_name"/>
+        <result property="rating" column="rating"/>
+        <result property="content" column="content"/>
+        <result property="createTime" column="create_time"/>
+        <result property="isDeleted" column="is_deleted"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, book_id, user_id, user_name, rating, content, create_time, is_deleted
+    </sql>
+
+    <insert id="insert" parameterType="BookComment" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO book_comment (book_id, user_id, user_name, rating, content)
+        VALUES (#{bookId}, #{userId}, #{userName}, #{rating}, #{content})
+    </insert>
+
+    <select id="selectByBookId" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM book_comment
+        WHERE book_id = #{bookId} AND is_deleted = 0
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectById" parameterType="long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM book_comment
+        WHERE id = #{id} AND is_deleted = 0
+    </select>
+
+    <!-- 逻辑删除：仅标记 is_deleted = 1 -->
+    <update id="deleteById" parameterType="long">
+        UPDATE book_comment SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+</mapper>

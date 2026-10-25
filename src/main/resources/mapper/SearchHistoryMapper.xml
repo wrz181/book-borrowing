@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookborrowing.mapper.SearchHistoryMapper">
+
+    <resultMap id="BaseResultMap" type="SearchHistory">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="keyword" column="keyword"/>
+        <result property="searchTime" column="search_time"/>
+        <result property="isDeleted" column="is_deleted"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="SearchHistory" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO search_history (user_id, keyword)
+        VALUES (#{userId}, #{keyword})
+    </insert>
+
+    <select id="selectRecentByUser" resultMap="BaseResultMap">
+        SELECT id, user_id, keyword, search_time, is_deleted
+        FROM search_history
+        WHERE user_id = #{userId} AND is_deleted = 0
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
