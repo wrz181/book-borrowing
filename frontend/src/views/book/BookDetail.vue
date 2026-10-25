@@ -37,17 +37,15 @@
         <el-table-column label="实际归还日期" width="130" align="center">
           <template #default="{ row }">{{ row.returnDate || '未归还' }}</template>
         </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
+        <el-table-column label="状态" width="110" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'warning' : 'success'" size="small">
-              {{ row.status === 1 ? '借阅中' : '已归还' }}
-            </el-tag>
+            <el-tag :type="statusMeta(row.status).type" size="small">{{ statusMeta(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
-        <el-table-column label="操作" width="100" align="center">
+        <el-table-column label="操作" width="110" align="center">
           <template #default="{ row }">
-            <el-button v-if="row.status === 1" type="primary" text @click="onReturn(row)">归还</el-button>
+            <el-button v-if="row.status === 1" type="primary" text @click="onReturn(row)">发起归还</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -70,6 +68,18 @@ const router = useRouter()
 const loading = ref(false)
 const book = ref(null)
 
+/** 状态展示：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
+function statusMeta(status) {
+  switch (status) {
+    case 0: return { label: '待确认', type: 'warning' }
+    case 1: return { label: '借阅中', type: 'primary' }
+    case 2: return { label: '已归还', type: 'success' }
+    case 3: return { label: '已驳回', type: 'danger' }
+    case 4: return { label: '归还待确认', type: 'warning' }
+    default: return { label: '未知', type: 'info' }
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -81,12 +91,12 @@ async function loadData() {
 
 async function onReturn(row) {
   try {
-    await ElMessageBox.confirm(`确认归还《${book.value.bookName}》（借阅人：${row.borrowerName}）？`, '归还确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认申请归还《${book.value.bookName}》（借阅人：${row.borrowerName}）？提交后需系统管理员确认。`, '归还申请', { type: 'warning' })
   } catch {
     return
   }
   await returnBorrowRecord(row.id)
-  ElMessage.success('归还成功')
+  ElMessage.success('归还申请已提交，等待系统管理员确认')
   await loadData()
 }
 

@@ -24,7 +24,7 @@ public class BorrowRecord {
     /** 借阅人学号/借阅证号 */
     private String borrowerNo;
 
-    /** 借阅人用户ID（关联 sys_user.id；历史数据可能为空，由升级脚本按学号回填） */
+    /** 借阅人用户ID（关联 sys_user.id，数据范围控制用） */
     private Long borrowerId;
 
     /** 借阅日期 */
@@ -36,7 +36,7 @@ public class BorrowRecord {
     /** 实际归还日期（未归还为空） */
     private LocalDate returnDate;
 
-    /** 状态：1-借阅中 2-已归还 */
+    /** 状态：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
     private Integer status;
 
     /** 备注 */

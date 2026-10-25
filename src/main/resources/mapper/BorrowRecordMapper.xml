@@ -113,10 +113,18 @@
         UPDATE borrow_record SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
     </update>
 
-    <update id="returnRecord">
+    <!-- 状态流转：仅当记录处于 fromStatus 时才更新，避免并发重复审批 -->
+    <update id="updateStatus">
+        UPDATE borrow_record
+        SET status = #{toStatus}
+        WHERE id = #{id} AND status = #{fromStatus} AND is_deleted = 0
+    </update>
+
+    <!-- 归还审批通过：归还待确认(4) → 已归还(2)，同时写入实际归还日期 -->
+    <update id="finishReturn">
         UPDATE borrow_record
         SET return_date = #{returnDate}, status = 2
-        WHERE id = #{id} AND status = 1 AND is_deleted = 0
+        WHERE id = #{id} AND status = 4 AND is_deleted = 0
     </update>
 
     <!-- R03 重复业务校验：同一借阅人、同一图书、同一借阅日期不得重复生成借阅记录（仅统计未删除记录） -->
@@ -132,17 +140,26 @@
         </if>
     </select>
 
-    <!-- 业务保护：同一借阅人对同一图书不得存在多条未归还记录（仅统计未删除记录） -->
+    <!-- 业务保护：同一借阅人对同一图书不得存在多条未归还记录（待确认/借阅中/归还待确认均算占用） -->
     <select id="countUnreturned" resultType="int">
         SELECT COUNT(1)
         FROM borrow_record
         WHERE book_id = #{bookId}
           AND borrower_no = #{borrowerNo}
-          AND status = 1
+          AND status IN (0, 1, 4)
           AND is_deleted = 0
         <if test="excludeId != null">
             AND id &lt;&gt; #{excludeId}
         </if>
+    </select>
+
+    <!-- 业务保护：图书存在未结束借阅记录时不允许删除 -->
+    <select id="countUnreturnedByBook" resultType="int">
+        SELECT COUNT(1)
+        FROM borrow_record
+        WHERE book_id = #{bookId}
+          AND status IN (0, 1, 4)
+          AND is_deleted = 0
     </select>
 
 </mapper>

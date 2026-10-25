@@ -71,13 +71,25 @@ public interface BorrowRecordMapper {
     int deleteById(Long id);
 
     /**
-     * 归还操作：设置归还日期并更新状态为已归还。
+     * 状态流转：仅当记录处于 fromStatus 时才更新为 toStatus（并发安全）。
+     *
+     * @param id         记录ID
+     * @param fromStatus 期望的原状态
+     * @param toStatus   目标状态
+     * @return 影响行数
+     */
+    int updateStatus(@Param("id") Long id,
+                     @Param("fromStatus") int fromStatus,
+                     @Param("toStatus") int toStatus);
+
+    /**
+     * 归还审批通过：归还待确认(4) → 已归还(2)，并写入实际归还日期。
      *
      * @param id         记录ID
      * @param returnDate 归还日期
      * @return 影响行数
      */
-    int returnRecord(@Param("id") Long id, @Param("returnDate") java.time.LocalDate returnDate);
+    int finishReturn(@Param("id") Long id, @Param("returnDate") java.time.LocalDate returnDate);
 
     /**
      * R03 重复业务校验：统计同一借阅人、同一图书、同一借阅日期的记录数。
@@ -104,4 +116,12 @@ public interface BorrowRecordMapper {
     int countUnreturned(@Param("bookId") Long bookId,
                         @Param("borrowerNo") String borrowerNo,
                         @Param("excludeId") Long excludeId);
+
+    /**
+     * 统计某图书未结束（待确认/借阅中/归还待确认）的借阅记录数（删除图书前校验）。
+     *
+     * @param bookId 图书ID
+     * @return 未结束记录数
+     */
+    int countUnreturnedByBook(@Param("bookId") Long bookId);
 }

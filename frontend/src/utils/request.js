@@ -14,10 +14,6 @@ request.interceptors.request.use(
     if (userStore.token) {
       config.headers.Authorization = 'Bearer ' + userStore.token
     }
-    // 当前身份（三员顶栏切换）：后端按此身份解析权限
-    if (userStore.activeRoleId) {
-      config.headers['X-Active-Role'] = String(userStore.activeRoleId)
-    }
     return config
   },
   (error) => Promise.reject(error)
@@ -46,12 +42,6 @@ request.interceptors.response.use(
       userStore.logout()
       window.location.href = '/login'
       return Promise.reject(error)
-    }
-    // HTTP 403：无权限，展示后端返回的具体提示
-    if (error.response && error.response.status === 403) {
-      const msg = (error.response.data && error.response.data.message) || '无操作权限'
-      ElMessage.error(msg)
-      return Promise.reject(new Error(msg))
     }
     ElMessage.error(error.message || '网络异常')
     return Promise.reject(error)

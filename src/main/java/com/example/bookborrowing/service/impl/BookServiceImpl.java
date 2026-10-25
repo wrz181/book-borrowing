@@ -6,6 +6,7 @@ import com.example.bookborrowing.dto.BookQueryDTO;
 import com.example.bookborrowing.entity.Book;
 import com.example.bookborrowing.mapper.BookCategoryMapper;
 import com.example.bookborrowing.mapper.BookMapper;
+import com.example.bookborrowing.mapper.BorrowRecordMapper;
 import com.example.bookborrowing.service.BookService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +26,13 @@ public class BookServiceImpl implements BookService {
 
     private final BookCategoryMapper bookCategoryMapper;
 
-    public BookServiceImpl(BookMapper bookMapper, BookCategoryMapper bookCategoryMapper) {
+    private final BorrowRecordMapper borrowRecordMapper;
+
+    public BookServiceImpl(BookMapper bookMapper, BookCategoryMapper bookCategoryMapper,
+                           BorrowRecordMapper borrowRecordMapper) {
         this.bookMapper = bookMapper;
         this.bookCategoryMapper = bookCategoryMapper;
+        this.borrowRecordMapper = borrowRecordMapper;
     }
 
     @Override
@@ -90,6 +95,11 @@ public class BookServiceImpl implements BookService {
         if (exist == null) {
             log.warn("删除图书失败：图书不存在，id={}", id);
             throw new BusinessException("图书不存在");
+        }
+        // 存在未归还借阅记录的图书不允许删除，保证借阅业务数据完整
+        if (borrowRecordMapper.countUnreturnedByBook(id) > 0) {
+            log.warn("删除图书失败：存在未归还借阅记录，id={}，书名={}", id, exist.getBookName());
+            throw new BusinessException("该图书存在未归还的借阅记录，不能删除");
         }
         // 逻辑删除：仅标记 is_deleted = 1，保留借阅记录历史，不物理删除行
         bookMapper.deleteById(id);

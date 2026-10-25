@@ -140,30 +140,9 @@
         UPDATE book SET stock = stock + 1 WHERE id = #{id} AND is_deleted = 0
     </update>
 
-    <!-- 采购入库：按数量增加库存 -->
-    <update id="addStockBy">
-        UPDATE book SET stock = stock + #{count} WHERE id = #{id} AND is_deleted = 0
+    <!-- 借阅审批联动图书状态：库存为 0 置为下架/已借完，归还后恢复在架可借 -->
+    <update id="updateStatus">
+        UPDATE book SET status = #{status} WHERE id = #{id} AND is_deleted = 0
     </update>
-
-    <!--
-      采购入库时匹配已有图书：优先按 ISBN 精确匹配，无 ISBN 时按图书名称精确匹配。
-      仅匹配未删除的图书，命中多条时取最早入库的一条。
-    -->
-    <select id="selectForStockIn" resultMap="BaseResultMap">
-        SELECT <include refid="Book_With_Category_Column_List"/>
-        FROM book b
-        LEFT JOIN book_category c ON b.category_id = c.id
-        WHERE b.is_deleted = 0
-        <choose>
-            <when test="isbn != null and isbn != ''">
-                AND b.isbn = #{isbn}
-            </when>
-            <otherwise>
-                AND b.book_name = #{bookName}
-            </otherwise>
-        </choose>
-        ORDER BY b.id ASC
-        LIMIT 1
-    </select>
 
 </mapper>

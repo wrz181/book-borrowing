@@ -12,9 +12,12 @@
         <el-input v-model="query.borrowerNo" placeholder="学号/证号模糊查询" clearable style="width: 150px" @keyup.enter="onSearch" />
       </el-form-item>
       <el-form-item label="状态">
-        <el-select v-model="query.status" placeholder="全部" clearable style="width: 120px">
+        <el-select v-model="query.status" placeholder="全部" clearable style="width: 130px">
+          <el-option label="待确认" :value="0" />
           <el-option label="借阅中" :value="1" />
           <el-option label="已归还" :value="2" />
+          <el-option label="已驳回" :value="3" />
+          <el-option label="归还待确认" :value="4" />
         </el-select>
       </el-form-item>
       <el-form-item label="借阅日期">
@@ -35,7 +38,10 @@
     </el-form>
 
     <div class="toolbar">
-      <el-button type="primary" :icon="Plus" @click="openDialog()">新增借阅记录</el-button>
+      <el-button v-if="userStore.isAdmin" type="primary" :icon="Plus" @click="openDialog()">新增借阅记录</el-button>
+      <span v-if="!userStore.isAdmin" class="toolbar-tip">
+        在「图书信息管理」中点击「申请阅览」提交申请，管理员确认后生效。
+      </span>
     </div>
 
     <el-table :data="tableData" v-loading="loading" border stripe>
@@ -50,23 +56,31 @@
       <el-table-column label="实际归还日期" width="120" align="center">
         <template #default="{ row }">{{ row.returnDate || '未归还' }}</template>
       </el-table-column>
-      <el-table-column label="状态" width="90" align="center">
+      <el-table-column label="状态" width="110" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'warning' : 'success'" size="small">
-            {{ row.status === 1 ? '借阅中' : '已归还' }}
+          <el-tag :type="statusMeta(row.status).type" size="small">
+            {{ statusMeta(row.status).label }}
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
-      <el-table-column label="操作" width="220" align="center" fixed="right">
+      <el-table-column label="操作" width="250" align="center" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="row.status === 1" type="success" text @click="onReturn(row)">归还</el-button>
-          <el-button v-permission="'borrow:manage'" type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
-          <el-popconfirm title="确认删除该借阅记录？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
-            <template #reference>
-              <el-button v-permission="'borrow:manage'" type="danger" text :icon="Delete">删除</el-button>
-            </template>
-          </el-popconfirm>
+          <!-- 学生：借阅中可发起归还（管理员走「确认归还」，不代替学生发起） -->
+          <el-button v-if="row.status === 1 && !userStore.isAdmin" type="success" text @click="onReturn(row)">申请归还</el-button>
+          <!-- 管理员：确认/驳回阅览申请 -->
+          <template v-if="userStore.isAdmin">
+            <el-button v-if="row.status === 0" type="primary" text @click="onApprove(row)">确认借阅</el-button>
+            <el-button v-if="row.status === 0" type="danger" text @click="onReject(row)">驳回</el-button>
+            <el-button v-if="row.status === 4" type="primary" text @click="onConfirmReturn(row)">确认归还</el-button>
+            <el-button v-if="row.status === 4" type="danger" text @click="onRejectReturn(row)">驳回归还</el-button>
+            <el-button v-if="row.status === 0" type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
+            <el-popconfirm title="确认删除该借阅记录？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
+              <template #reference>
+                <el-button type="danger" text :icon="Delete">删除</el-button>
+              </template>
+            </el-popconfirm>
+          </template>
         </template>
       </el-table-column>
     </el-table>
@@ -117,13 +131,19 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   pageBorrowRecords, createBorrowRecord, updateBorrowRecord,
-  deleteBorrowRecord, returnBorrowRecord
+  deleteBorrowRecord, returnBorrowRecord, approveBorrowRecord,
+  rejectBorrowRecord, confirmReturnBorrowRecord, rejectReturnBorrowRecord
 } from '../../api/borrowRecord'
 import { pageBooks } from '../../api/book'
+import { useUserStore } from '../../stores/user'
+
+const userStore = useUserStore()
+const route = useRoute()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -151,6 +171,18 @@ const rules = {
 
 const beginDate = computed(() => (dateRange.value && dateRange.value.length === 2 ? dateRange.value[0] : undefined))
 const endDate = computed(() => (dateRange.value && dateRange.value.length === 2 ? dateRange.value[1] : undefined))
+
+/** 状态展示：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
+function statusMeta(status) {
+  switch (status) {
+    case 0: return { label: '待确认', type: 'warning' }
+    case 1: return { label: '借阅中', type: 'primary' }
+    case 2: return { label: '已归还', type: 'success' }
+    case 3: return { label: '已驳回', type: 'danger' }
+    case 4: return { label: '归还待确认', type: 'warning' }
+    default: return { label: '未知', type: 'info' }
+  }
+}
 
 async function loadData() {
   loading.value = true
@@ -235,7 +267,7 @@ async function onSubmit() {
       ElMessage.success('修改成功')
     } else {
       await createBorrowRecord(editing)
-      ElMessage.success('借阅登记成功')
+      ElMessage.success('已提交借阅登记，等待系统管理员确认')
     }
     dialogVisible.value = false
     await loadData()
@@ -254,17 +286,80 @@ async function onDelete(row) {
 
 async function onReturn(row) {
   try {
-    await ElMessageBox.confirm(`确认归还《${row.bookName}》（借阅人：${row.borrowerName}）？`, '归还确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认申请归还《${row.bookName}》（借阅人：${row.borrowerName}）？提交后需系统管理员确认。`, '归还申请', { type: 'warning' })
   } catch {
     return
   }
   await returnBorrowRecord(row.id)
-  ElMessage.success('归还成功')
+  ElMessage.success('归还申请已提交，等待系统管理员确认')
   await loadData()
   await loadBookOptions()
 }
 
+/** 系统管理员：确认阅览申请 */
+async function onApprove(row) {
+  try {
+    await ElMessageBox.confirm(`确认借出《${row.bookName}》给 ${row.borrowerName}？确认后将扣减库存。`, '确认借阅', { type: 'warning' })
+  } catch {
+    return
+  }
+  await approveBorrowRecord(row.id)
+  ElMessage.success('已确认借阅')
+  await loadData()
+  await loadBookOptions()
+}
+
+/** 系统管理员：驳回阅览申请 */
+async function onReject(row) {
+  let reason = ''
+  try {
+    const res = await ElMessageBox.prompt('请填写驳回原因（可留空）', '驳回阅览申请', {
+      confirmButtonText: '确认驳回', cancelButtonText: '取消', inputPlaceholder: '如：库存不足 / 信息有误'
+    })
+    reason = res.value || ''
+  } catch {
+    return
+  }
+  await rejectBorrowRecord(row.id, reason)
+  ElMessage.success('已驳回')
+  await loadData()
+}
+
+/** 系统管理员：确认归还 */
+async function onConfirmReturn(row) {
+  try {
+    await ElMessageBox.confirm(`确认 ${row.borrowerName} 已归还《${row.bookName}》？确认后恢复库存。`, '确认归还', { type: 'warning' })
+  } catch {
+    return
+  }
+  await confirmReturnBorrowRecord(row.id)
+  ElMessage.success('已确认归还')
+  await loadData()
+  await loadBookOptions()
+}
+
+/** 系统管理员：驳回归还 */
+async function onRejectReturn(row) {
+  let reason = ''
+  try {
+    const res = await ElMessageBox.prompt('请填写驳回原因（可留空）', '驳回归还申请', {
+      confirmButtonText: '确认驳回', cancelButtonText: '取消', inputPlaceholder: '如：图书未实际归还'
+    })
+    reason = res.value || ''
+  } catch {
+    return
+  }
+  await rejectReturnBorrowRecord(row.id, reason)
+  ElMessage.success('已驳回归还申请')
+  await loadData()
+}
+
 onMounted(async () => {
+  // 从待办中心「去处理」跳转时按状态预筛选（0-待确认 4-归还待确认）
+  const s = route.query.status
+  if (s !== undefined && s !== null && s !== '') {
+    query.status = Number(s)
+  }
   await loadBookOptions()
   await loadData()
 })
@@ -281,6 +376,11 @@ onMounted(async () => {
 }
 .toolbar {
   margin-bottom: 16px;
+}
+.toolbar-tip {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 13px;
 }
 .pagination {
   margin-top: 16px;

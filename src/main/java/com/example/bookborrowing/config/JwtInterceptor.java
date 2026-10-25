@@ -1,5 +1,7 @@
 package com.example.bookborrowing.config;
 
+import com.example.bookborrowing.entity.SysUser;
+import com.example.bookborrowing.mapper.SysUserMapper;
 import com.example.bookborrowing.util.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +14,7 @@ import java.util.Map;
 
 /**
  * JWT 登录拦截器：除登录接口外，所有 /api/** 请求均需携带有效 token。
+ * 解析成功后向请求注入 currentUserId 与 currentRole，供控制器做角色判断。
  */
 @Component
 public class JwtInterceptor implements HandlerInterceptor {
@@ -22,10 +25,13 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
 
+    private final SysUserMapper sysUserMapper;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public JwtInterceptor(JwtUtil jwtUtil) {
+    public JwtInterceptor(JwtUtil jwtUtil, SysUserMapper sysUserMapper) {
         this.jwtUtil = jwtUtil;
+        this.sysUserMapper = sysUserMapper;
     }
 
     @Override
@@ -42,7 +48,13 @@ public class JwtInterceptor implements HandlerInterceptor {
         token = token.substring(TOKEN_PREFIX.length());
         try {
             Long userId = jwtUtil.parseUserId(token);
-            request.setAttribute("currentUserId", userId);
+            SysUser user = userId == null ? null : sysUserMapper.selectById(userId);
+            if (user == null) {
+                writeUnauthorized(response, "登录状态无效，请重新登录");
+                return false;
+            }
+            request.setAttribute("currentUserId", user.getId());
+            request.setAttribute("currentRole", user.getRole());
             return true;
         } catch (Exception e) {
             writeUnauthorized(response, "登录状态无效，请重新登录");

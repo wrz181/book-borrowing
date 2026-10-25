@@ -90,20 +90,11 @@ public interface BookMapper {
     int addStock(Long id);
 
     /**
-     * 按数量增加图书库存（图书采购入库时使用）。
+     * 更新图书状态（1-在架可借 0-已下架/已借完），借阅审批联动使用。
      *
-     * @param id    图书ID
-     * @param count 入库数量
+     * @param id     图书ID
+     * @param status 目标状态
      * @return 影响行数
      */
-    int addStockBy(@Param("id") Long id, @Param("count") int count);
-
-    /**
-     * 采购入库时匹配已有图书：优先按 ISBN，其次按图书名称。
-     *
-     * @param isbn     ISBN编号（可空）
-     * @param bookName 图书名称
-     * @return 匹配到的图书，未匹配返回 null
-     */
-    Book selectForStockIn(@Param("isbn") String isbn, @Param("bookName") String bookName);
+    int updateStatus(@Param("id") Long id, @Param("status") int status);
 }

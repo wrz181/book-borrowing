@@ -14,14 +14,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
 
-    private final PermissionInterceptor permissionInterceptor;
-
     @Value("${jwt.exclude-paths:/api/auth/login}")
     private String[] excludePaths;
 
-    public WebMvcConfig(JwtInterceptor jwtInterceptor, PermissionInterceptor permissionInterceptor) {
+    public WebMvcConfig(JwtInterceptor jwtInterceptor) {
         this.jwtInterceptor = jwtInterceptor;
-        this.permissionInterceptor = permissionInterceptor;
     }
 
     @Override
@@ -37,14 +34,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 先校验登录态（注入 currentUserId），再校验方法级权限
+        // 登录态校验，注入 currentUserId / currentRole
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(excludePaths)
                 .order(1);
-        registry.addInterceptor(permissionInterceptor)
-                .addPathPatterns("/api/**")
-                .excludePathPatterns(excludePaths)
-                .order(2);
     }
 }

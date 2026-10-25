@@ -6,6 +6,9 @@ import com.example.bookborrowing.entity.BorrowRecord;
 
 /**
  * 借阅记录业务接口。
+ * <p>
+ * 状态流转：0-待确认 →（管理员确认）1-借阅中 →（学生申请归还）4-归还待确认 →（管理员确认）2-已归还；
+ * 待确认可驳回为 3-已驳回，归还待确认可驳回回 1-借阅中。
  */
 public interface BorrowRecordService {
 
@@ -15,7 +18,7 @@ public interface BorrowRecordService {
      * @param pageNum         页码（从1开始）
      * @param pageSize        每页条数
      * @param query           动态查询条件（图书名称/借阅人/状态/借阅日期范围，可组合）
-     * @param scopeBorrowerId 数据范围：非空时仅查询本人记录；null 表示不限范围（由 Controller 按权限计算）
+     * @param scopeBorrowerId 数据范围：非空时仅查询本人记录；null 表示不限范围（由 Controller 按角色计算）
      * @return 分页结果
      */
     PageResult<BorrowRecord> page(int pageNum, int pageSize, BorrowRecordQueryDTO query, Long scopeBorrowerId);
@@ -30,43 +33,68 @@ public interface BorrowRecordService {
     BorrowRecord getDetail(Long id, Long scopeBorrowerId);
 
     /**
-     * 新增借阅记录：校验图书存在、R03 重复借阅规则、库存，并扣减库存。
+     * 提交阅览申请：生成「待确认」记录，不扣库存，等待管理员确认。
      *
      * @param record        借阅记录实体
-     * @param currentUserId 当前登录用户ID（写入 borrower_id，形成数据归属，防止前端伪造）
-     * @param manage        当前用户是否持有 borrow:manage；非管理身份一律以本人作为借阅归属
+     * @param currentUserId 当前登录用户ID（学生强制作为借阅人）
+     * @param manage        当前用户是否为管理员
      */
     void create(BorrowRecord record, Long currentUserId, boolean manage);
 
     /**
-     * 更新借阅记录：同样执行 R03 重复借阅规则校验。
+     * 更新借阅记录：仅允许修改「待确认」状态的记录。
      *
      * @param record 借阅记录实体
      */
     void update(BorrowRecord record);
 
     /**
-     * 删除借阅记录：未归还记录删除时恢复图书库存。
+     * 删除借阅记录：已占用库存的记录删除时恢复库存。
      *
      * @param id 记录ID
      */
     void remove(Long id);
 
     /**
-     * 归还图书：设置归还日期、状态改为已归还，并恢复库存。
+     * 发起归还：借阅中(1) → 归还待确认(4)。
      *
      * @param id            记录ID
      * @param currentUserId 当前登录用户ID
-     * @param manage        当前用户是否持有 borrow:manage；非管理身份只能归还本人记录
+     * @param manage        当前用户是否为管理员；学生只能操作本人记录
      */
-    void returnBook(Long id, Long currentUserId, boolean manage);
+    void requestReturn(Long id, Long currentUserId, boolean manage);
 
     /**
-     * 判断当前登录用户是否持有借阅管理权限（borrow:manage），用于收敛数据范围。
+     * 管理员确认借阅：待确认(0) → 借阅中(1)，扣减库存，库存为 0 时图书状态置为不可借。
      *
-     * @param userId       当前登录用户ID
-     * @param activeRoleId 当前身份角色ID（请求头 X-Active-Role），null 表示按全身份权限并集判定
-     * @return 持有 borrow:manage 返回 true
+     * @param id         记录ID
+     * @param operatorId 操作人ID
      */
-    boolean hasBorrowManage(Long userId, Long activeRoleId);
+    void approve(Long id, Long operatorId);
+
+    /**
+     * 管理员驳回借阅：待确认(0) → 已驳回(3)。
+     *
+     * @param id         记录ID
+     * @param reason     驳回原因（可空）
+     * @param operatorId 操作人ID
+     */
+    void reject(Long id, String reason, Long operatorId);
+
+    /**
+     * 管理员确认归还：归还待确认(4) → 已归还(2)，恢复库存并恢复图书可借状态。
+     *
+     * @param id         记录ID
+     * @param operatorId 操作人ID
+     */
+    void confirmReturn(Long id, Long operatorId);
+
+    /**
+     * 管理员驳回归还：归还待确认(4) → 借阅中(1)。
+     *
+     * @param id         记录ID
+     * @param reason     驳回原因（可空）
+     * @param operatorId 操作人ID
+     */
+    void rejectReturn(Long id, String reason, Long operatorId);
 }

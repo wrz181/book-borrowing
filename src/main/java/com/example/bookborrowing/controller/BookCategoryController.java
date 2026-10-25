@@ -1,14 +1,11 @@
 package com.example.bookborrowing.controller;
 
-import com.example.bookborrowing.annotation.RequirePermission;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.entity.BookCategory;
 import com.example.bookborrowing.service.BookCategoryService;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,7 +18,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/categories")
-@RequirePermission("category:view")
 public class BookCategoryController {
 
     private final BookCategoryService bookCategoryService;
@@ -48,7 +44,6 @@ public class BookCategoryController {
      * @return 空响应
      */
     @PostMapping
-    @RequirePermission("category:manage")
     public Result<Void> create(@RequestBody BookCategory category) {
         bookCategoryService.create(category);
         return Result.success();
@@ -62,7 +57,6 @@ public class BookCategoryController {
      * @return 空响应
      */
     @PostMapping("/{id}")
-    @RequirePermission("category:manage")
     public Result<Void> update(@PathVariable Long id, @RequestBody BookCategory category) {
         category.setId(id);
         bookCategoryService.update(category);
@@ -76,7 +70,6 @@ public class BookCategoryController {
      * @return 空响应
      */
     @PostMapping("/{id}/delete")
-    @RequirePermission("category:manage")
     public Result<Void> delete(@PathVariable Long id) {
         bookCategoryService.remove(id);
         return Result.success();

@@ -1,16 +1,13 @@
 package com.example.bookborrowing.controller;
 
-import com.example.bookborrowing.annotation.RequirePermission;
 import com.example.bookborrowing.common.PageResult;
 import com.example.bookborrowing.common.Result;
 import com.example.bookborrowing.dto.BookQueryDTO;
 import com.example.bookborrowing.entity.Book;
 import com.example.bookborrowing.service.BookService;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/books")
-@RequirePermission("book:view")
 public class BookController {
 
     private final BookService bookService;
@@ -63,7 +59,6 @@ public class BookController {
      * @return 空响应
      */
     @PostMapping
-    @RequirePermission("book:add")
     public Result<Void> create(@RequestBody Book book) {
         bookService.create(book);
         return Result.success();
@@ -77,7 +72,6 @@ public class BookController {
      * @return 空响应
      */
     @PostMapping("/{id}")
-    @RequirePermission("book:edit")
     public Result<Void> update(@PathVariable Long id, @RequestBody Book book) {
         book.setId(id);
         bookService.update(book);
@@ -91,7 +85,6 @@ public class BookController {
      * @return 空响应
      */
     @PostMapping("/{id}/delete")
-    @RequirePermission("book:delete")
     public Result<Void> delete(@PathVariable Long id) {
         bookService.remove(id);
         return Result.success();

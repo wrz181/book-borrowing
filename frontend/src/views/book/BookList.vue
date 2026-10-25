@@ -26,7 +26,7 @@
     </el-form>
 
     <div class="toolbar">
-      <el-button v-permission="'book:add'" type="primary" :icon="Plus" @click="openDialog()">新增图书</el-button>
+      <el-button v-if="userStore.isAdmin" type="primary" :icon="Plus" @click="openDialog()">新增图书</el-button>
     </div>
 
     <el-table :data="tableData" v-loading="loading" border stripe>
@@ -42,17 +42,24 @@
       <el-table-column label="状态" width="100" align="center">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-            {{ row.status === 1 ? '在架可借' : '已下架' }}
+            {{ row.status === 1 ? '在架可借' : (row.stock > 0 ? '已下架' : '已借完') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="230" align="center" fixed="right">
+      <el-table-column label="操作" width="310" align="center" fixed="right">
         <template #default="{ row }">
           <el-button type="warning" text :icon="View" @click="router.push(`/books/detail/${row.id}`)">详情/借阅记录</el-button>
-          <el-button v-permission="'book:edit'" type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
-          <el-popconfirm title="确认删除该图书？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
+          <el-button
+            type="success"
+            text
+            :icon="Reading"
+            :disabled="row.status !== 1 || !row.stock"
+            @click="openApply(row)"
+          >申请阅览</el-button>
+          <el-button v-if="userStore.isAdmin" type="primary" text :icon="Edit" @click="openDialog(row)">编辑</el-button>
+          <el-popconfirm v-if="userStore.isAdmin" title="确认删除该图书？" confirm-button-text="删除" cancel-button-text="取消" @confirm="onDelete(row)">
             <template #reference>
-              <el-button v-permission="'book:delete'" type="danger" text :icon="Delete">删除</el-button>
+              <el-button type="danger" text :icon="Delete">删除</el-button>
             </template>
           </el-popconfirm>
         </template>
@@ -107,18 +114,53 @@
         <el-button type="primary" :loading="submitting" @click="onSubmit">保存</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-model="applyVisible" title="申请阅览" width="520px">
+      <el-form ref="applyFormRef" :model="applyForm" :rules="applyRules" label-width="100px">
+        <el-form-item label="图书">
+          <el-input :model-value="applyBook.bookName" disabled />
+        </el-form-item>
+        <el-form-item label="借阅人" prop="borrowerName">
+          <el-input v-model="applyForm.borrowerName" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="借阅证号" prop="borrowerNo">
+          <el-input v-model="applyForm.borrowerNo" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="借阅日期" prop="borrowDate">
+          <el-date-picker v-model="applyForm.borrowDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="应还日期" prop="dueDate">
+          <el-date-picker v-model="applyForm.dueDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="applyForm.remark" type="textarea" :rows="2" maxlength="200" />
+        </el-form-item>
+        <el-alert
+          title="提交后由系统管理员确认，确认通过才占用库存；可在「借阅记录管理」查看进度。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+      </el-form>
+      <template #footer>
+        <el-button @click="applyVisible = false">取消</el-button>
+        <el-button type="primary" :loading="applying" @click="onApplySubmit">提交申请</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Refresh, Plus, Edit, Delete, View } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Edit, Delete, View, Reading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { pageBooks, createBook, updateBook, deleteBook } from '../../api/book'
 import { listCategories } from '../../api/category'
+import { createBorrowRecord } from '../../api/borrowRecord'
+import { useUserStore } from '../../stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -138,6 +180,68 @@ const editing = reactive({
 const rules = {
   bookName: [{ required: true, message: '请输入图书名称', trigger: 'blur' }],
   categoryId: [{ required: true, message: '请选择所属分类', trigger: 'change' }]
+}
+
+/* ---------------- 申请阅览 ---------------- */
+const applyVisible = ref(false)
+const applying = ref(false)
+const applyFormRef = ref(null)
+const applyBook = reactive({ id: null, bookName: '' })
+const applyForm = reactive({
+  borrowerId: null, borrowerName: '', borrowerNo: '', borrowDate: '', dueDate: '', remark: ''
+})
+const applyRules = {
+  borrowerName: [{ required: true, message: '请输入借阅人姓名', trigger: 'blur' }],
+  borrowerNo: [{ required: true, message: '请输入借阅证号', trigger: 'blur' }],
+  borrowDate: [{ required: true, message: '请选择借阅日期', trigger: 'change' }],
+  dueDate: [{ required: true, message: '请选择应还日期', trigger: 'change' }]
+}
+
+/** 日期格式化：YYYY-MM-DD */
+function fmtDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function openApply(row) {
+  applyBook.id = row.id
+  applyBook.bookName = row.bookName
+  const info = userStore.userInfo || {}
+  const today = new Date()
+  const due = new Date()
+  due.setDate(due.getDate() + 30)
+  Object.assign(applyForm, {
+    borrowerId: null,
+    borrowerName: info.nickname || info.username || '',
+    borrowerNo: info.username || '',
+    borrowDate: fmtDate(today),
+    dueDate: fmtDate(due),
+    remark: ''
+  })
+  applyVisible.value = true
+  applyFormRef.value?.clearValidate()
+}
+
+async function onApplySubmit() {
+  try {
+    await applyFormRef.value.validate()
+  } catch {
+    return
+  }
+  if (applyForm.dueDate < applyForm.borrowDate) {
+    ElMessage.warning('应还日期不能早于借阅日期')
+    return
+  }
+  applying.value = true
+  try {
+    await createBorrowRecord({ bookId: applyBook.id, ...applyForm })
+    ElMessage.success('申请已提交，等待系统管理员确认')
+    applyVisible.value = false
+  } finally {
+    applying.value = false
+  }
 }
 
 async function loadData() {
@@ -216,7 +320,12 @@ async function onDelete(row) {
 }
 
 onMounted(async () => {
-  categories.value = await listCategories()
+  try {
+    categories.value = await listCategories()
+  } catch {
+    // 分类筛选属辅助能力，加载失败不影响图书列表主流程
+    categories.value = []
+  }
   await loadData()
 })
 </script>
