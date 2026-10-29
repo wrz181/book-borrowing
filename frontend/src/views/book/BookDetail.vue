@@ -118,10 +118,10 @@ const comments = ref([])
 const commentSubmitting = ref(false)
 const commentForm = ref({ rating: 5, content: '' })
 
-/** 状态展示：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
+/** 状态展示：0-借阅待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
 function statusMeta(status) {
   switch (status) {
-    case 0: return { label: '待确认', type: 'warning' }
+    case 0: return { label: '借阅待确认', type: 'warning' }
     case 1: return { label: '借阅中', type: 'primary' }
     case 2: return { label: '已归还', type: 'success' }
     case 3: return { label: '已驳回', type: 'danger' }

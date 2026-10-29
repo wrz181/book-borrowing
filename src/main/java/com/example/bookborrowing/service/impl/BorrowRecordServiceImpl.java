@@ -31,7 +31,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
 
     private static final Logger log = LoggerFactory.getLogger(BorrowRecordServiceImpl.class);
 
-    /** 待确认（学生已提交阅览申请，等待管理员确认） */
+    /** 借阅待确认（学生已提交阅览申请，等待管理员确认） */
     private static final int STATUS_PENDING = 0;
 
     /** 借阅中 */
@@ -120,7 +120,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
             throw new BusinessException("借阅记录不存在");
         }
         if (exist.getStatus() == null || exist.getStatus() != STATUS_PENDING) {
-            throw new BusinessException("只有「待确认」的申请可以修改");
+            throw new BusinessException("只有「借阅待确认」的申请可以修改");
         }
         validateAndPrepare(record, record.getId());
         borrowRecordMapper.updateById(record);
@@ -240,7 +240,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
     public void approve(Long id, Long operatorId) {
         BorrowRecord exist = requireRecord(id);
         if (exist.getStatus() == null || exist.getStatus() != STATUS_PENDING) {
-            throw new BusinessException("只有「待确认」的申请可以确认");
+            throw new BusinessException("只有「借阅待确认」的申请可以确认");
         }
         int deducted = bookMapper.deductStock(exist.getBookId());
         if (deducted == 0) {
@@ -265,7 +265,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
     public void reject(Long id, String reason, Long operatorId) {
         BorrowRecord exist = requireRecord(id);
         if (exist.getStatus() == null || exist.getStatus() != STATUS_PENDING) {
-            throw new BusinessException("只有「待确认」的申请可以驳回");
+            throw new BusinessException("只有「借阅待确认」的申请可以驳回");
         }
         int rows = borrowRecordMapper.updateStatus(id, STATUS_PENDING, STATUS_REJECTED);
         if (rows == 0) {

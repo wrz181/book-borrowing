@@ -7,8 +7,8 @@ import com.example.bookborrowing.entity.BorrowRecord;
 /**
  * 借阅记录业务接口。
  * <p>
- * 状态流转：0-待确认 →（管理员确认）1-借阅中 →（学生申请归还）4-归还待确认 →（管理员确认）2-已归还；
- * 待确认可驳回为 3-已驳回，归还待确认可驳回回 1-借阅中。
+ * 状态流转：0-借阅待确认 →（管理员确认）1-借阅中 →（学生申请归还）4-归还待确认 →（管理员确认）2-已归还；
+ * 借阅待确认可驳回为 3-已驳回，归还待确认可驳回回 1-借阅中。
  */
 public interface BorrowRecordService {
 
@@ -33,7 +33,7 @@ public interface BorrowRecordService {
     BorrowRecord getDetail(Long id, Long scopeBorrowerId);
 
     /**
-     * 提交阅览申请：生成「待确认」记录，不扣库存，等待管理员确认。
+     * 提交阅览申请：生成「借阅待确认」记录，不扣库存，等待管理员确认。
      *
      * @param record        借阅记录实体
      * @param currentUserId 当前登录用户ID（学生强制作为借阅人）
@@ -42,7 +42,7 @@ public interface BorrowRecordService {
     void create(BorrowRecord record, Long currentUserId, boolean manage);
 
     /**
-     * 更新借阅记录：仅允许修改「待确认」状态的记录。
+     * 更新借阅记录：仅允许修改「借阅待确认」状态的记录。
      *
      * @param record 借阅记录实体
      */
@@ -65,7 +65,7 @@ public interface BorrowRecordService {
     void requestReturn(Long id, Long currentUserId, boolean manage);
 
     /**
-     * 管理员确认借阅：待确认(0) → 借阅中(1)，扣减库存，库存为 0 时图书状态置为不可借。
+     * 管理员确认借阅：借阅待确认(0) → 借阅中(1)，扣减库存，库存为 0 时图书状态置为不可借。
      *
      * @param id         记录ID
      * @param operatorId 操作人ID
@@ -73,7 +73,7 @@ public interface BorrowRecordService {
     void approve(Long id, Long operatorId);
 
     /**
-     * 管理员驳回借阅：待确认(0) → 已驳回(3)。
+     * 管理员驳回借阅：借阅待确认(0) → 已驳回(3)。
      *
      * @param id         记录ID
      * @param reason     驳回原因（可空）

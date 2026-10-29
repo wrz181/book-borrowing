@@ -118,7 +118,7 @@ public interface BorrowRecordMapper {
                         @Param("excludeId") Long excludeId);
 
     /**
-     * 统计某图书未结束（待确认/借阅中/归还待确认）的借阅记录数（删除图书前校验）。
+     * 统计某图书未结束（借阅待确认/借阅中/归还待确认）的借阅记录数（删除图书前校验）。
      *
      * @param bookId 图书ID
      * @return 未结束记录数

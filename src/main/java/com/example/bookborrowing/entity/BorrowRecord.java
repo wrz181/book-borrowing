@@ -36,7 +36,7 @@ public class BorrowRecord {
     /** 实际归还日期（未归还为空） */
     private LocalDate returnDate;
 
-    /** 状态：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
+    /** 状态：0-借阅待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
     private Integer status;
 
     /** 备注 */

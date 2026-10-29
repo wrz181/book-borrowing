@@ -70,7 +70,7 @@ public class BorrowRecordController {
     }
 
     /**
-     * 提交阅览申请：生成「待确认」记录（不扣库存），等待管理员确认。
+     * 提交阅览申请：生成「借阅待确认」记录（不扣库存），等待管理员确认。
      *
      * @param record  借阅记录实体
      * @param request HTTP 请求
@@ -136,7 +136,7 @@ public class BorrowRecordController {
     }
 
     /**
-     * 管理员确认借阅：待确认 → 借阅中，扣减库存并联动图书状态。
+     * 管理员确认借阅：借阅待确认 → 借阅中，扣减库存并联动图书状态。
      *
      * @param id      记录ID
      * @param request HTTP 请求
@@ -156,7 +156,7 @@ public class BorrowRecordController {
     }
 
     /**
-     * 管理员驳回阅览申请：待确认 → 已驳回。
+     * 管理员驳回阅览申请：借阅待确认 → 已驳回。
      *
      * @param id      记录ID
      * @param body    请求体（可含 reason 驳回原因）

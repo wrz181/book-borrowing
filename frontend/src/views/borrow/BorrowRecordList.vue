@@ -13,7 +13,7 @@
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="query.status" placeholder="全部" clearable style="width: 130px">
-          <el-option label="待确认" :value="0" />
+          <el-option label="借阅待确认" :value="0" />
           <el-option label="借阅中" :value="1" />
           <el-option label="已归还" :value="2" />
           <el-option label="已驳回" :value="3" />
@@ -172,10 +172,10 @@ const rules = {
 const beginDate = computed(() => (dateRange.value && dateRange.value.length === 2 ? dateRange.value[0] : undefined))
 const endDate = computed(() => (dateRange.value && dateRange.value.length === 2 ? dateRange.value[1] : undefined))
 
-/** 状态展示：0-待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
+/** 状态展示：0-借阅待确认 1-借阅中 2-已归还 3-已驳回 4-归还待确认 */
 function statusMeta(status) {
   switch (status) {
-    case 0: return { label: '待确认', type: 'warning' }
+    case 0: return { label: '借阅待确认', type: 'warning' }
     case 1: return { label: '借阅中', type: 'primary' }
     case 2: return { label: '已归还', type: 'success' }
     case 3: return { label: '已驳回', type: 'danger' }
@@ -355,7 +355,7 @@ async function onRejectReturn(row) {
 }
 
 onMounted(async () => {
-  // 从待办中心「去处理」跳转时按状态预筛选（0-待确认 4-归还待确认）
+  // 从待办中心「去处理」跳转时按状态预筛选（0-借阅待确认 4-归还待确认）
   const s = route.query.status
   if (s !== undefined && s !== null && s !== '') {
     query.status = Number(s)
