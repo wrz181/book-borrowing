@@ -1,8 +1,9 @@
-package com.example.bookborrowing.service;
+package com.example.bookborrowing.service.impl;
 
 import com.example.bookborrowing.common.BusinessException;
 import com.example.bookborrowing.entity.BookCategory;
 import com.example.bookborrowing.mapper.BookCategoryMapper;
+import com.example.bookborrowing.service.BookCategoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
