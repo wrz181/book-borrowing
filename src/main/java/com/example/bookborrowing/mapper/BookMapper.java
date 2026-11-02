@@ -97,4 +97,20 @@ public interface BookMapper {
      * @return 影响行数
      */
     int updateStatus(@Param("id") Long id, @Param("status") int status);
+
+    /**
+     * 按ID集合批量查询图书（热门排行回表用），保持与分类的关联名称。
+     *
+     * @param ids 图书ID集合
+     * @return 图书列表
+     */
+    List<Book> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 按未删除借阅记录数倒序取前 N 名图书（Redis 不可用时的热门排行降级查询）。
+     *
+     * @param limit 名次数
+     * @return 图书列表（含分类名称）
+     */
+    List<Book> selectTopBorrowed(@Param("limit") int limit);
 }

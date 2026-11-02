@@ -10,6 +10,11 @@ export function getBookDetail(id) {
   return request.get(`/books/${id}`)
 }
 
+/** 热门图书排行（Redis 实时统计，浏览+1分、借阅申请+10分；Redis 不可用时后端自动降级为数据库统计） */
+export function getHotBooks(top = 10) {
+  return request.get('/books/hot', { params: { top } })
+}
+
 /** 新增图书 */
 export function createBook(data) {
   return request.post('/books', data)

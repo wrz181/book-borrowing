@@ -1,6 +1,7 @@
 package com.example.bookborrowing.entity;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import java.util.List;
  * 其中 categoryName / borrowRecords 为非数据库字段，用于关联查询结果承载。
  */
 @Data
+@NoArgsConstructor
 public class Book {
 
     /** 主键ID */

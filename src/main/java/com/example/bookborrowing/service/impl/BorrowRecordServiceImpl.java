@@ -10,7 +10,9 @@ import com.example.bookborrowing.mapper.BookMapper;
 import com.example.bookborrowing.mapper.BorrowRecordMapper;
 import com.example.bookborrowing.mapper.SysUserMapper;
 import com.example.bookborrowing.service.BorrowRecordService;
+import com.example.bookborrowing.service.HotBookService;
 import com.example.bookborrowing.service.OperationLogService;
+import com.example.bookborrowing.service.support.RedisSupportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,12 +56,19 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
 
     private final OperationLogService operationLogService;
 
+    private final HotBookService hotBookService;
+
+    private final RedisSupportService redisSupport;
+
     public BorrowRecordServiceImpl(BorrowRecordMapper borrowRecordMapper, BookMapper bookMapper,
-                                   SysUserMapper sysUserMapper, OperationLogService operationLogService) {
+                                   SysUserMapper sysUserMapper, OperationLogService operationLogService,
+                                   HotBookService hotBookService, RedisSupportService redisSupport) {
         this.borrowRecordMapper = borrowRecordMapper;
         this.bookMapper = bookMapper;
         this.sysUserMapper = sysUserMapper;
         this.operationLogService = operationLogService;
+        this.hotBookService = hotBookService;
+        this.redisSupport = redisSupport;
     }
 
     @Override
@@ -107,6 +116,10 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         record.setReturnDate(null);
         borrowRecordMapper.insert(record);
         logAction(currentUserId, "提交申请", "申请借阅《" + book.getBookName() + "》");
+        // 热门排行计分：借阅申请 +10 分（Redis 内部静默降级，不影响借阅主流程）
+        hotBookService.recordBorrow(record.getBookId());
+        // 详情缓存失效：详情聚合了该书借阅记录，新增申请后需同步失效
+        redisSupport.evictBookDetailCache(record.getBookId());
         log.info("提交阅览申请成功：id={}，图书ID={}，借阅人={}，borrower_id={}",
                 record.getId(), record.getBookId(), record.getBorrowerName(), record.getBorrowerId());
     }
@@ -124,6 +137,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         }
         validateAndPrepare(record, record.getId());
         borrowRecordMapper.updateById(record);
+        redisSupport.evictBookDetailCache(record.getBookId());
         log.info("修改借阅记录成功：id={}，图书ID={}，借阅人={}", record.getId(), record.getBookId(), record.getBorrowerName());
     }
 
@@ -212,6 +226,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
             bookMapper.addStock(exist.getBookId());
             bookMapper.updateStatus(exist.getBookId(), 1);
         }
+        redisSupport.evictBookDetailCache(exist.getBookId());
         log.info("删除借阅记录成功：id={}，图书ID={}", id, exist.getBookId());
     }
 
@@ -232,6 +247,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         if (rows == 0) {
             throw new BusinessException("提交失败，记录状态已变化");
         }
+        redisSupport.evictBookDetailCache(exist.getBookId());
         log.info("提交归还申请成功：id={}，图书ID={}，借阅人={}", id, exist.getBookId(), exist.getBorrowerName());
     }
 
@@ -257,6 +273,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         }
         logAction(operatorId, "确认借阅", "确认借出《" + (book == null ? exist.getBookId() : book.getBookName())
                 + "》给 " + exist.getBorrowerName());
+        redisSupport.evictBookDetailCache(exist.getBookId());
         log.info("借阅审批通过：id={}，图书ID={}，操作人={}", id, exist.getBookId(), operatorId);
     }
 
@@ -271,6 +288,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         if (rows == 0) {
             throw new BusinessException("驳回失败，记录状态已变化");
         }
+        redisSupport.evictBookDetailCache(exist.getBookId());
         log.info("借阅申请被驳回：id={}，操作人={}，原因={}", id, operatorId, reason);
     }
 
@@ -291,6 +309,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         Book book = bookMapper.selectById(exist.getBookId());
         String bookName = book == null ? exist.getBookId() + "号" : book.getBookName();
         logAction(operatorId, "确认归还", exist.getBorrowerName() + " 归还《" + bookName + "》");
+        redisSupport.evictBookDetailCache(exist.getBookId());
         log.info("归还审批通过：id={}，图书ID={}，操作人={}", id, exist.getBookId(), operatorId);
     }
 
@@ -305,6 +324,7 @@ public class BorrowRecordServiceImpl implements BorrowRecordService {
         if (rows == 0) {
             throw new BusinessException("驳回失败，记录状态已变化");
         }
+        redisSupport.evictBookDetailCache(exist.getBookId());
         log.info("归还申请被驳回：id={}，操作人={}，原因={}", id, operatorId, reason);
     }
 

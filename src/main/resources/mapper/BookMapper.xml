@@ -145,4 +145,29 @@
         UPDATE book SET status = #{status} WHERE id = #{id} AND is_deleted = 0
     </update>
 
+    <!-- 按ID集合批量查询：热门排行（Redis ZSet）取回前 N 名后回表补全图书信息 -->
+    <select id="selectByIds" resultMap="BaseResultMap">
+        SELECT <include refid="Book_With_Category_Column_List"/>
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        WHERE b.is_deleted = 0 AND b.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!--
+      热门排行数据库降级查询：Redis 不可用时改按未删除借阅记录数倒序统计。
+      ORDER BY 内使用关联子查询统计每本图书的借阅记录数，数据量小时开销可忽略。
+    -->
+    <select id="selectTopBorrowed" resultMap="BaseResultMap">
+        SELECT <include refid="Book_With_Category_Column_List"/>
+        FROM book b
+        LEFT JOIN book_category c ON b.category_id = c.id
+        WHERE b.is_deleted = 0
+        ORDER BY (SELECT COUNT(1) FROM borrow_record r
+                  WHERE r.book_id = b.id AND r.is_deleted = 0) DESC, b.id ASC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

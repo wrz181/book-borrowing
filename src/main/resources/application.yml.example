@@ -1,0 +1,49 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bookborrowing
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/bookborrowing?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:Wrz!18136467664}
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: 6379
+      # 连接与命令超时都设短：Redis 不可用时快速降级，不拖慢业务请求
+      connect-timeout: 2000ms
+      timeout: 2000ms
+
+# 云计算扩展配置：Redis / HDFS 总开关，均支持无中间件时降级运行
+app:
+  redis:
+    # 关闭后热门排行自动改用数据库统计、图书缓存与登录会话校验自动失效（纯 JWT 模式）
+    enabled: ${APP_REDIS_ENABLED:true}
+  hdfs:
+    # 对接 Hadoop 集群（本机单机伪分布 / 实训手册三节点集群 / docker-compose 的 hdfs 服务）
+    enabled: ${APP_HDFS_ENABLED:true}
+    name-node: ${APP_HDFS_NAME_NODE:hdfs://localhost:9000}
+    user: ${APP_HDFS_USER:root}
+    base-path: /bookborrowing
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.bookborrowing.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# JWT 配置
+jwt:
+  # 密钥（HS256 要求至少 32 字符）。生产环境务必通过环境变量 JWT_SECRET 覆盖，不要提交真实密钥
+  secret: ${JWT_SECRET:CHANGE_ME_jwt_secret_at_least_32_chars_long}
+  # token 有效期（小时）
+  expire-hours: ${JWT_EXPIRE_HOURS:24}
+  # 不需要登录校验的路径
+  exclude-paths: /api/auth/login

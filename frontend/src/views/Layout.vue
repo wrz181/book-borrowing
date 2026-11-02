@@ -3,6 +3,9 @@
     <el-aside width="220px" class="aside">
       <div class="logo">图书借阅管理</div>
       <el-menu :default-active="activeMenu" class="menu" @select="onMenuSelect">
+        <el-menu-item index="/dashboard">
+          <el-icon><TrendCharts /></el-icon><span>首页看板</span>
+        </el-menu-item>
         <el-menu-item index="/books">
           <el-icon><Notebook /></el-icon><span>图书信息管理</span>
         </el-menu-item>
@@ -12,6 +15,9 @@
         <el-menu-item index="/borrow-records">
           <el-icon><List /></el-icon>
           <span>{{ userStore.isAdmin ? '借阅记录管理' : '我的借阅记录' }}</span>
+        </el-menu-item>
+        <el-menu-item v-if="userStore.isAdmin" index="/hdfs-archive">
+          <el-icon><Box /></el-icon><span>HDFS 数据归档</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -51,7 +57,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Notebook, Folder, List, UserFilled, SwitchButton } from '@element-plus/icons-vue'
+import { Notebook, Folder, List, UserFilled, SwitchButton, TrendCharts, Box } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
 import { latestNotice } from '../api/notice'

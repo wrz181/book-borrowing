@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { logout as apiLogout } from '../api/auth'
 
 const TOKEN_KEY = 'bookborrowing_token'
 const USER_KEY = 'bookborrowing_user'
@@ -27,6 +28,10 @@ export const useUserStore = defineStore('user', {
       localStorage.setItem(TOKEN_KEY, this.token)
     },
     logout() {
+      // 先请求服务端吊销 token（从 Redis 白名单删除），失败不阻塞本地登出
+      if (this.token) {
+        apiLogout().catch(() => {})
+      }
       this.token = ''
       this.userInfo = null
       localStorage.removeItem(TOKEN_KEY)

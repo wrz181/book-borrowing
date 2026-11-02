@@ -1,0 +1,98 @@
+# 图书借阅管理系统（云计算版）一键编排
+# 用法：
+#   docker compose up -d                 # 启动 MySQL + Redis + 后端 + 前端（HDFS 关闭）
+#   docker compose --profile hadoop up -d # 额外启动单机 Hadoop（NameNode+DataNode），后端自动对接 HDFS
+#   前端访问：http://localhost:8081
+#   HDFS Web UI：http://localhost:9870（启用 hadoop profile 时）
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bb-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "root123"
+      MYSQL_DATABASE: bookborrowing
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 首次启动自动建库建表并导入测试数据
+      - ./bookborrowing.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot123"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: bb-redis
+    volumes:
+      - redis-data:/data
+
+  backend:
+    build: .
+    container_name: bb-backend
+    environment:
+      # 覆盖 application.yml：容器网络内用服务名访问
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/bookborrowing?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: "root"
+      SPRING_DATASOURCE_PASSWORD: "root123"
+      SPRING_DATA_REDIS_HOST: "redis"
+      APP_REDIS_ENABLED: "true"
+      # 启动 hadoop profile 时为 true，否则 false
+      APP_HDFS_ENABLED: "false"
+      APP_HDFS_NAME_NODE: "hdfs://hdfs-nn:9000"
+      APP_HDFS_USER: "root"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      # 映射后端端口：便于直接调用 /api/hdfs/* 等接口演示（curl/Apifox）
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    container_name: bb-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+
+  # ---- 可选：单机 Hadoop（docker compose --profile hadoop up -d 时启动）----
+  hdfs-nn:
+    image: apache/hadoop:3.3.6
+    container_name: bb-hdfs-nn
+    profiles: ["hadoop"]
+    hostname: hdfs-nn
+    command: ["hdfs", "namenode"]
+    ports:
+      - "9870:9870"
+    environment:
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-root/dfs/name"
+      CORE-SITE.XML_fs.default.FS: "hdfs://hdfs-nn:9000"
+      HDFS-SITE.XML_dfs.namenode.rpc-address: "hdfs-nn:9000"
+      HDFS-SITE.XML_dfs.namenode.http-address: "0.0.0.0:9870"
+      HDFS-SITE.XML_dfs.permissions.enabled: "false"
+    volumes:
+      - hdfs-nn-data:/hadoop/dfs/name
+
+  hdfs-dn:
+    image: apache/hadoop:3.3.6
+    container_name: bb-hdfs-dn
+    profiles: ["hadoop"]
+    hostname: hdfs-dn
+    command: ["hdfs", "datanode"]
+    depends_on:
+      - hdfs-nn
+    environment:
+      CORE-SITE.XML_fs.default.FS: "hdfs://hdfs-nn:9000"
+      HDFS-SITE.XML_dfs.datanode.http-address: "0.0.0.0:9864"
+      HDFS-SITE.XML_dfs.permissions.enabled: "false"
+    volumes:
+      - hdfs-dn-data:/hadoop/dfs/data
+
+volumes:
+  mysql-data:
+  redis-data:
+  hdfs-nn-data:
+  hdfs-dn-data:

@@ -1,0 +1,26 @@
+# Build / compiled output
+target/
+**/target/
+*.class
+
+# Node
+frontend/node_modules/
+node_modules/
+
+# Frontend build output
+frontend/dist/
+dist/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# 本地含明文的配置文件（真实密码/JWT 密钥不入库），请用 application.yml.example 作模板
+src/main/resources/application.yml

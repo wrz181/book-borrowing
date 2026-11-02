@@ -12,8 +12,14 @@ const routes = [
   {
     path: '/',
     component: Layout,
-    redirect: '/books',
+    redirect: '/dashboard',
     children: [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('../views/dashboard/Dashboard.vue'),
+        meta: { title: '首页看板' }
+      },
       {
         path: 'books',
         name: 'BookList',
@@ -37,6 +43,12 @@ const routes = [
         name: 'BorrowRecordList',
         component: () => import('../views/borrow/BorrowRecordList.vue'),
         meta: { title: '借阅记录管理' }
+      },
+      {
+        path: 'hdfs-archive',
+        name: 'HdfsArchive',
+        component: () => import('../views/hdfs/HdfsArchive.vue'),
+        meta: { title: 'HDFS 数据归档', adminOnly: true }
       }
     ]
   },
@@ -49,7 +61,7 @@ const router = createRouter({
   routes
 })
 
-// 导航守卫：未登录跳转登录页
+// 导航守卫：未登录跳转登录页；adminOnly 页面学生重定向回首页
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
   if (to.meta.public) {
@@ -58,6 +70,10 @@ router.beforeEach((to, from, next) => {
   }
   if (!userStore.token) {
     next('/login')
+    return
+  }
+  if (to.meta.adminOnly && !userStore.isAdmin) {
+    next('/dashboard')
     return
   }
   next()
